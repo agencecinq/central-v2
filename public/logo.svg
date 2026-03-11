@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#000000" rx="8"/>
+    <text
+        x="50"
+        y="68"
+        font-family="Arial, 'Helvetica Neue', sans-serif"
+        font-size="42"
+        font-weight="900"
+        fill="#F5F5DC"
+        text-anchor="middle"
+        letter-spacing="1.5"
+    >CINQ</text>
+</svg>

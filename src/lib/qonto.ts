@@ -1,0 +1,244 @@
+/**
+ * Qonto API service.
+ * Port of the V1 Laravel QontoService.php to TypeScript.
+ *
+ * API docs: https://api-doc.qonto.com
+ * Base URL: https://thirdparty.qonto.com/v2
+ * Auth: Authorization header with format "login:secret-key"
+ */
+
+const BASE_URL = "https://thirdparty.qonto.com/v2";
+
+function getCredentials() {
+  const login = process.env.QONTO_LOGIN;
+  const secretKey = process.env.QONTO_SECRET_KEY;
+  if (!login || !secretKey) {
+    throw new Error(
+      "Qonto credentials missing. Set QONTO_LOGIN and QONTO_SECRET_KEY in .env.local",
+    );
+  }
+  return { login, secretKey };
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export interface QontoBankAccount {
+  id: string;
+  iban: string;
+  bic: string;
+  balance: number;
+  balance_cents: number;
+  authorized_balance: number;
+  authorized_balance_cents: number;
+  currency: string;
+  name: string;
+  status: string;
+  slug: string;
+}
+
+export interface QontoOrganization {
+  slug: string;
+  legal_name: string;
+  bank_accounts: QontoBankAccount[];
+}
+
+export interface QontoClientInvoice {
+  id: string;
+  number: string;
+  status: string; // "unpaid" | "paid" | "cancelled" | "draft" | ...
+  total_amount_cents: number;
+  vat_amount_cents: number;
+  due_date: string | null;
+  issue_date: string | null;
+  currency: string;
+  client: { name: string } | null;
+  invoice_url: string | null;
+}
+
+export interface PendingInvoice {
+  qontoId: string;
+  numero: string;
+  clientNom: string;
+  montantHT: number;
+  montantTTC: number;
+  dateEcheance: string;
+  dateEmission: string | null;
+  joursRetard: number;
+  invoiceUrl: string | null;
+}
+
+// ─── Low-level fetch ─────────────────────────────────────────────────────────
+
+async function qontoFetch<T>(
+  endpoint: string,
+  params?: Record<string, string | number>,
+): Promise<T> {
+  const { login, secretKey } = getCredentials();
+
+  const url = new URL(`${BASE_URL}${endpoint}`);
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, String(value));
+    }
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Authorization: `${login}:${secretKey}`,
+    },
+    signal: AbortSignal.timeout(10_000),
+    // No caching — fresh data each request
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `Qonto API ${response.status} on ${endpoint}: ${body.slice(0, 200)}`,
+    );
+  }
+
+  return response.json() as Promise<T>;
+}
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+/** Get the organization info including bank accounts. */
+export async function getOrganization(): Promise<QontoOrganization> {
+  const data = await qontoFetch<{ organization: QontoOrganization }>(
+    "/organization",
+  );
+  return data.organization;
+}
+
+/** Get all bank accounts. */
+export async function getBankAccounts(): Promise<QontoBankAccount[]> {
+  const org = await getOrganization();
+  return org.bank_accounts ?? [];
+}
+
+/**
+ * Get total balance across all accounts.
+ * Note: Qonto returns balance in euros (not cents) for bank accounts.
+ */
+export async function getTotalBalance(): Promise<number> {
+  const accounts = await getBankAccounts();
+  return accounts.reduce((sum, a) => sum + (a.balance ?? 0), 0);
+}
+
+/**
+ * Get all unpaid client invoices from Qonto (paginated).
+ * Amounts are in cents in the API, converted to euros here.
+ */
+export async function getPendingInvoices(): Promise<PendingInvoice[]> {
+  const allInvoices: QontoClientInvoice[] = [];
+  let currentPage = 1;
+  let totalPages = 1;
+
+  do {
+    const data = await qontoFetch<{
+      client_invoices: QontoClientInvoice[];
+      meta: { total_pages: number; current_page: number; total_count: number };
+    }>("/client_invoices", {
+      current_page: currentPage,
+      per_page: 100,
+    });
+
+    allInvoices.push(...data.client_invoices);
+    totalPages = data.meta?.total_pages ?? 1;
+    currentPage++;
+  } while (currentPage <= totalPages);
+
+  // Filter unpaid and format
+  const today = new Date();
+
+  return allInvoices
+    .filter((inv) => inv.status === "unpaid")
+    .filter((inv) => inv.due_date) // must have a due date
+    .map((inv) => {
+      const totalAmountCents = inv.total_amount_cents ?? 0;
+      const vatAmountCents = inv.vat_amount_cents ?? 0;
+      const montantHT = (totalAmountCents - vatAmountCents) / 100;
+      const montantTTC = totalAmountCents / 100;
+
+      const dueDate = new Date(inv.due_date!);
+      const diffMs = today.getTime() - dueDate.getTime();
+      const joursRetard = Math.max(
+        0,
+        Math.floor(diffMs / (1000 * 60 * 60 * 24)),
+      );
+
+      return {
+        qontoId: inv.id,
+        numero: inv.number || "N/A",
+        clientNom: inv.client?.name || "N/A",
+        montantHT,
+        montantTTC,
+        dateEcheance: inv.due_date!,
+        dateEmission: inv.issue_date,
+        joursRetard,
+        invoiceUrl: inv.invoice_url,
+      };
+    })
+    .sort((a, b) => a.dateEcheance.localeCompare(b.dateEcheance));
+}
+
+/** Get total HT amount of all pending invoices. */
+export async function getTotalPendingAmount(): Promise<number> {
+  const invoices = await getPendingInvoices();
+  return invoices.reduce((sum, inv) => sum + inv.montantHT, 0);
+}
+
+// ─── All invoices (for linking to deals) ────────────────────────────────────
+
+export interface QontoInvoiceSummary {
+  qontoId: string;
+  numero: string;
+  clientNom: string;
+  montantHT: number;
+  montantTTC: number;
+  status: string;
+  dateEmission: string | null;
+}
+
+/**
+ * Get ALL client invoices from Qonto (paid + unpaid), paginated.
+ * Used to link invoices to deals.
+ */
+export async function getAllInvoices(): Promise<QontoInvoiceSummary[]> {
+  const allInvoices: QontoClientInvoice[] = [];
+  let currentPage = 1;
+  let totalPages = 1;
+
+  do {
+    const data = await qontoFetch<{
+      client_invoices: QontoClientInvoice[];
+      meta: { total_pages: number; current_page: number; total_count: number };
+    }>("/client_invoices", {
+      current_page: currentPage,
+      per_page: 100,
+    });
+
+    allInvoices.push(...data.client_invoices);
+    totalPages = data.meta?.total_pages ?? 1;
+    currentPage++;
+  } while (currentPage <= totalPages);
+
+  return allInvoices
+    .filter((inv) => inv.status !== "draft" && inv.status !== "cancelled")
+    .map((inv) => {
+      const totalAmountCents = inv.total_amount_cents ?? 0;
+      const vatAmountCents = inv.vat_amount_cents ?? 0;
+
+      return {
+        qontoId: inv.id,
+        numero: inv.number || "N/A",
+        clientNom: inv.client?.name || "N/A",
+        montantHT: (totalAmountCents - vatAmountCents) / 100,
+        montantTTC: totalAmountCents / 100,
+        status: inv.status,
+        dateEmission: inv.issue_date,
+      };
+    })
+    .sort((a, b) => (b.dateEmission ?? "").localeCompare(a.dateEmission ?? ""));
+}

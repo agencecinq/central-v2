@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id                      Int       @id @default(autoincrement())
+  name                    String    @db.VarChar(255)
+  email                   String    @unique(map: "users_email_unique") @db.VarChar(255)
+  emailVerifiedAt         DateTime? @map("email_verified_at")
+  password                String    @db.VarChar(255)
+  role                    String    @default("equipe") @db.VarChar(50)
+  clientId                Int?      @map("client_id")
+  tjm                     Decimal?  @db.Decimal(10, 2)
+  slackId                 String?   @map("slack_id") @db.VarChar(255)
+  googleId                String?   @unique(map: "users_google_id_unique") @map("google_id") @db.VarChar(255)
+  googleCalendarToken     String?   @map("google_calendar_token") @db.Text
+  googleRefreshToken      String?   @map("google_refresh_token") @db.Text
+  googleTokenExpiresAt    DateTime? @map("google_token_expires_at")
+  googleCalendarId        String?   @map("google_calendar_id") @db.VarChar(255)
+  rememberToken           String?   @map("remember_token") @db.VarChar(100)
+  twoFactorSecret         String?   @map("two_factor_secret") @db.Text
+  twoFactorRecoveryCodes  String?   @map("two_factor_recovery_codes") @db.Text
+  twoFactorConfirmedAt    DateTime? @map("two_factor_confirmed_at")
+  createdAt               DateTime? @map("created_at")
+  updatedAt               DateTime? @map("updated_at")
+
+  projects          Project[] @relation("ChefProjet")
+  tasks             Task[]
+  timeEntries       TimeEntry[]
+  client            Client?   @relation(fields: [clientId], references: [id])
+  userMetiers       UserMetier[]
+  ticketsCreated    Ticket[]  @relation("TicketCreateur")
+  ticketsAssigned   Ticket[]  @relation("TicketAssigne")
+
+  @@map("users")
+}
+
+model Client {
+  id          Int       @id @default(autoincrement())
+  nom         String    @db.VarChar(255)
+  email       String    @db.VarChar(255)
+  telephone   String?   @db.VarChar(255)
+  entreprise  String?   @db.VarChar(255)
+  statut      String    @default("prospect") @db.VarChar(50)
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+
+  projects    Project[]
+  users       User[]
+  deals       Deal[]
+
+  @@map("clients")
+}
+
+model Deal {
+  id                    Int       @id @default(autoincrement())
+  clientId              Int       @map("client_id")
+  titre                 String    @db.VarChar(255)
+  montantEstime         Decimal   @map("montant_estime") @db.Decimal(15, 2)
+  etape                 String    @default("Prospect") @db.VarChar(50)
+  montantFinal          Decimal?  @map("montant_final") @db.Decimal(15, 2)
+  qontoQuoteId          String?   @map("qonto_quote_id") @db.VarChar(255)
+  modalitesFacturation  String?   @map("modalites_facturation") @db.LongText
+  dateSignature         DateTime? @map("date_signature") @db.Date
+  createdAt             DateTime? @map("created_at")
+  updatedAt             DateTime? @map("updated_at")
+
+  client                Client    @relation(fields: [clientId], references: [id])
+  propositions          PropositionCommerciale[]
+  dealFactures          DealFacture[]
+  dealRevenuPlanifies   DealRevenuPlanifie[]
+  projects              Project[]
+
+  @@map("deals")
+}
+
+model PropositionCommerciale {
+  id                          Int       @id @default(autoincrement())
+  dealId                      Int       @map("deal_id")
+  nom                         String?   @db.VarChar(255)
+  publicToken                 String    @unique @map("public_token") @db.VarChar(64)
+  montantTotal                Decimal   @default(0) @map("montant_total") @db.Decimal(15, 2)
+  introduction                String?   @db.Text
+  conclusion                  String?   @db.Text
+  remiseGlobale               Decimal   @default(0) @map("remise_globale") @db.Decimal(5, 2)
+  langue                      String    @default("fr") @db.VarChar(2)
+  devise                      String    @default("EUR") @db.VarChar(3)
+  tauxTva                     Decimal   @default(20) @map("taux_tva") @db.Decimal(5, 2)
+  tauxGestionProjet           Decimal   @default(20) @map("taux_gestion_projet") @db.Decimal(5, 2)
+  tjmGestionProjet            Decimal   @default(800) @map("tjm_gestion_projet") @db.Decimal(10, 2)
+  beneficesCles               String?   @map("benefices_cles") @db.LongText
+  informationsComplementaires String?   @map("informations_complementaires") @db.LongText
+  callToAction                String?   @map("call_to_action") @db.LongText
+  references                  String?   @db.LongText
+  dateDebutProjet             DateTime? @map("date_debut_projet") @db.Date
+  logoEntreprise              String?   @map("logo_entreprise") @db.VarChar(255)
+  logoClient                  String?   @map("logo_client") @db.VarChar(255)
+  qontoQuoteId                String?   @map("qonto_quote_id") @db.VarChar(255)
+  createdAt                   DateTime? @map("created_at")
+  updatedAt                   DateTime? @map("updated_at")
+
+  deal                        Deal      @relation(fields: [dealId], references: [id])
+  sections                    PropositionCommercialeSection[]
+  planningEtapes              PropositionCommercialePlanningEtape[]
+
+  @@map("proposition_commerciales")
+}
+
+model PropositionCommercialeSection {
+  id                        Int       @id @default(autoincrement())
+  propositionCommercialeId   Int       @map("proposition_commerciale_id")
+  titre                     String    @db.VarChar(255)
+  description               String?   @db.Text
+  ordre                     Int       @default(0)
+  estOption                 Boolean   @default(false) @map("est_option")
+  createdAt                 DateTime? @map("created_at")
+  updatedAt                 DateTime? @map("updated_at")
+
+  proposition               PropositionCommerciale @relation(fields: [propositionCommercialeId], references: [id])
+  sousSections              PropositionCommercialeSousSection[]
+
+  @@map("proposition_commerciale_sections")
+}
+
+model PropositionCommercialeSousSection {
+  id          Int       @id @default(autoincrement())
+  sectionId   Int       @map("section_id")
+  titre       String    @db.VarChar(255)
+  description String?   @db.Text
+  nombreJours Decimal   @default(0) @map("nombre_jours") @db.Decimal(10, 2)
+  tjm         Decimal   @default(0) @db.Decimal(10, 2)
+  ordre       Int       @default(0)
+  remise      Decimal   @default(0) @db.Decimal(5, 2)
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+
+  section     PropositionCommercialeSection @relation(fields: [sectionId], references: [id])
+
+  @@map("proposition_commerciale_sous_sections")
+}
+
+model PropositionCommercialePlanningEtape {
+  id                        Int       @id @default(autoincrement())
+  propositionCommercialeId   Int       @map("proposition_commerciale_id")
+  titre                     String    @db.VarChar(255)
+  description               String?   @db.Text
+  ordre                     Int       @default(0)
+  nombreSemaines            Decimal?  @map("nombre_semaines") @db.Decimal(10, 2)
+  createdAt                 DateTime? @map("created_at")
+  updatedAt                 DateTime? @map("updated_at")
+
+  proposition               PropositionCommerciale @relation(fields: [propositionCommercialeId], references: [id])
+
+  @@map("proposition_commerciale_planning_etapes")
+}
+
+model Project {
+  id                Int       @id @default(autoincrement())
+  clientId          Int?      @map("client_id")
+  dealId            Int?      @map("deal_id")
+  chefProjetId      Int?      @map("chef_projet_id")
+  titre             String    @db.VarChar(255)
+  description       String?   @db.Text
+  githubUrl         String?   @map("github_url") @db.VarChar(255)
+  figmaUrl          String?   @map("figma_url") @db.VarChar(255)
+  githubRepoName    String?   @map("github_repo_name") @db.VarChar(255)
+  slackChannelId    String?   @map("slack_channel_id") @db.VarChar(255)
+  userbackProjectId String?   @map("userback_project_id") @db.VarChar(255)
+  budgetTotal       Decimal   @default(0) @map("budget_total") @db.Decimal(15, 2)
+  budgetConsomme    Decimal   @default(0) @map("budget_consomme") @db.Decimal(15, 2)
+  deadline          DateTime? @map("deadline") @db.Date
+  dateDebut         DateTime? @map("date_debut") @db.Date
+  dateFin           DateTime? @map("date_fin") @db.Date
+  statut            String    @default("en_attente") @db.VarChar(50)
+  isPersonnel       Boolean   @default(false) @map("is_personnel")
+  isAgence          Boolean   @default(false) @map("is_agence")
+  widgetToken       String?   @unique @map("widget_token") @db.VarChar(255)
+  createdAt         DateTime? @map("created_at")
+  updatedAt         DateTime? @map("updated_at")
+
+  client            Client?       @relation(fields: [clientId], references: [id])
+  deal              Deal?         @relation(fields: [dealId], references: [id])
+  chefProjet        User?         @relation("ChefProjet", fields: [chefProjetId], references: [id])
+  tasks             Task[]
+  timeEntries       TimeEntry[]
+  transactions      Transaction[]
+  tickets           Ticket[]
+  allocations       ProjectAllocation[]
+
+  @@map("projects")
+}
+
+model Task {
+  id                Int       @id @default(autoincrement())
+  projectId         Int       @map("project_id")
+  userId            Int?      @map("user_id")
+  titre             String    @db.VarChar(255)
+  description       String?   @db.Text
+  dateEcheance      DateTime? @map("date_echeance") @db.Date
+  dateDebut         DateTime? @map("date_debut") @db.Date
+  estimationHeures  Decimal?  @map("estimation_heures") @db.Decimal(8, 2)
+  categorie         String?   @db.VarChar(255)
+  estTerminee       Boolean   @default(false) @map("est_terminee")
+  priorite          String    @default("moyenne") @db.VarChar(50)
+  statutKanban      String    @default("todo") @map("statut_kanban") @db.VarChar(50)
+  isOutOfScope      Boolean   @default(false) @map("is_out_of_scope")
+  requiresNewQuote  Boolean   @default(false) @map("requires_new_quote")
+  priorityLevel     Int       @default(1) @map("priority_level")
+  isBacklog         Boolean   @default(true) @map("is_backlog")
+  allocationId      Int?      @map("allocation_id")
+  createdAt         DateTime? @map("created_at")
+  updatedAt         DateTime? @map("updated_at")
+
+  project           Project   @relation(fields: [projectId], references: [id])
+  user              User?     @relation(fields: [userId], references: [id])
+  allocation        ProjectAllocation? @relation(fields: [allocationId], references: [id])
+  timeEntries       TimeEntry[]
+
+  @@map("tasks")
+}
+
+model DealFacture {
+  id              Int       @id @default(autoincrement())
+  dealId          Int       @map("deal_id")
+  qontoInvoiceId  String    @map("qonto_invoice_id") @db.VarChar(255)
+  numero          String    @db.VarChar(255)
+  clientNom       String    @map("client_nom") @db.VarChar(255)
+  montantHT       Decimal   @map("montant_ht") @db.Decimal(15, 2)
+  dateFacture     DateTime? @map("date_facture") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  deal            Deal      @relation(fields: [dealId], references: [id])
+
+  @@unique([dealId, qontoInvoiceId])
+  @@map("deal_factures")
+}
+
+model ForecastExpense {
+  id        Int      @id @default(autoincrement())
+  categorie String   @db.VarChar(255)
+  mois      String   @default("") @db.VarChar(10)
+  moisFin   String?  @map("mois_fin") @db.VarChar(10)
+  libelle   String   @db.VarChar(255)
+  montant   Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("forecast_expenses_v2")
+}
+
+model DealRevenuPlanifie {
+  id        Int      @id @default(autoincrement())
+  dealId    Int      @map("deal_id")
+  mois      String   @db.VarChar(10)
+  montantHT Decimal  @map("montant_ht") @db.Decimal(15, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  deal      Deal     @relation(fields: [dealId], references: [id])
+
+  @@unique([dealId, mois])
+  @@map("deal_revenu_planifie")
+}
+
+model InvoicePlanification {
+  id        Int      @id @default(autoincrement())
+  numero    String   @unique @db.VarChar(255)
+  mois      String   @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("invoice_planification")
+}
+
+model TimeEntry {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  projectId   Int?      @map("project_id")
+  taskId      Int?      @map("task_id")
+  semaine     String    @db.VarChar(10)
+  duree       Decimal   @db.Decimal(8, 2)
+  unite       String    @default("heures") @db.VarChar(20)
+  categorie   String    @db.VarChar(255)
+  description String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user        User      @relation(fields: [userId], references: [id])
+  project     Project?  @relation(fields: [projectId], references: [id])
+  task        Task?     @relation(fields: [taskId], references: [id])
+
+  @@map("time_entries_v2")
+}
+
+model Transaction {
+  id                Int       @id @default(autoincrement())
+  projectId         Int?      @map("project_id")
+  label             String    @db.VarChar(255)
+  categorie         String?   @db.VarChar(255)
+  montant           Decimal   @db.Decimal(15, 2)
+  type              String    @db.VarChar(50)
+  statut            String?   @db.VarChar(50)
+  montantPaye       Decimal   @default(0) @map("montant_paye") @db.Decimal(15, 2)
+  dateTransaction   DateTime  @map("date_transaction") @db.Date
+  qontoId           String?   @unique @map("qonto_id") @db.VarChar(255)
+  createdAt         DateTime? @map("created_at")
+  updatedAt         DateTime? @map("updated_at")
+
+  project           Project?  @relation(fields: [projectId], references: [id])
+
+  @@map("transactions")
+}
+
+model Ticket {
+  id          Int       @id @default(autoincrement())
+  projectId   Int       @map("project_id")
+  createurId  Int?      @map("createur_id")
+  assigneId   Int?      @map("assigne_id")
+  titre       String    @db.VarChar(255)
+  description String?   @db.Text
+  statut      String    @default("ouvert") @db.VarChar(50)
+  navigateur  String?   @db.VarChar(255)
+  tailleEcran String?   @map("taille_ecran") @db.VarChar(50)
+  metaInfo    String?   @map("meta_info") @db.Text
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+
+  project     Project   @relation(fields: [projectId], references: [id])
+  createur    User?     @relation("TicketCreateur", fields: [createurId], references: [id])
+  assigne     User?     @relation("TicketAssigne", fields: [assigneId], references: [id])
+  attachments TicketAttachment[]
+
+  @@map("tickets")
+}
+
+model TicketAttachment {
+  id        Int       @id @default(autoincrement())
+  ticketId  Int       @map("ticket_id")
+  filename  String    @db.VarChar(255)
+  filepath  String    @db.VarChar(255)
+  mimetype  String?   @db.VarChar(255)
+  size      Int?
+  createdAt DateTime? @map("created_at")
+
+  ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_attachments")
+}
+
+model Metier {
+  id          Int                 @id @default(autoincrement())
+  nom         String              @unique @db.VarChar(255)
+  createdAt   DateTime?           @map("created_at")
+
+  userMetiers  UserMetier[]
+  allocations  ProjectAllocation[]
+
+  @@map("metiers")
+}
+
+model UserMetier {
+  id       Int    @id @default(autoincrement())
+  userId   Int    @map("user_id")
+  metierId Int    @map("metier_id")
+
+  user     User   @relation(fields: [userId], references: [id])
+  metier   Metier @relation(fields: [metierId], references: [id])
+
+  @@unique([userId, metierId])
+  @@map("user_metiers")
+}
+
+model ProjectAllocation {
+  id          Int       @id @default(autoincrement())
+  projectId   Int       @map("project_id")
+  metierId    Int       @map("metier_id")
+  joursPrevus Decimal   @map("jours_prevus") @db.Decimal(8, 2)
+  dateDebut   DateTime? @map("date_debut") @db.Date
+  dateFin     DateTime? @map("date_fin") @db.Date
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+
+  project     Project   @relation(fields: [projectId], references: [id])
+  metier      Metier    @relation(fields: [metierId], references: [id])
+  tasks       Task[]
+
+  @@map("project_allocations")
+}
