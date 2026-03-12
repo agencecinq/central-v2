@@ -179,6 +179,57 @@ export async function deleteTicket(ticketId: number) {
   revalidatePath("/tickets");
 }
 
+// ─── Bulk Actions ────────────────────────────────────────
+
+export async function bulkUpdateStatus(ticketIds: number[], statut: string) {
+  await getSessionUser();
+
+  await prisma.ticket.updateMany({
+    where: { id: { in: ticketIds } },
+    data: { statut },
+  });
+
+  revalidatePath("/tickets");
+}
+
+export async function bulkUpdateAssigne(ticketIds: number[], assigneId: number | null) {
+  await getSessionUser();
+
+  await prisma.ticket.updateMany({
+    where: { id: { in: ticketIds } },
+    data: { assigneId },
+  });
+
+  revalidatePath("/tickets");
+}
+
+export async function bulkDeleteTickets(ticketIds: number[]) {
+  await getSessionUser();
+
+  // Récupérer les attachments pour supprimer les fichiers
+  const attachments = await prisma.ticketAttachment.findMany({
+    where: { ticketId: { in: ticketIds } },
+    select: { filepath: true },
+  });
+
+  for (const att of attachments) {
+    try {
+      await unlink(path.join(process.cwd(), "public", att.filepath));
+    } catch {
+      // fichier déjà supprimé
+    }
+  }
+
+  await prisma.ticketAttachment.deleteMany({
+    where: { ticketId: { in: ticketIds } },
+  });
+  await prisma.ticket.deleteMany({
+    where: { id: { in: ticketIds } },
+  });
+
+  revalidatePath("/tickets");
+}
+
 export async function deleteAttachment(attachmentId: number) {
   const { userId, role } = await getSessionUser();
 

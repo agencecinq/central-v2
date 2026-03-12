@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition, useEffect, useRef } from "react";
+import { useMemo, useState, useTransition, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Paperclip, Upload, X } from "lucide-react";
+import { Plus, Paperclip, Upload, X, Trash2, CheckSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +31,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { createTicket, updateTicketStatus, updateTicketAssigne } from "./actions";
+import {
+  createTicket,
+  updateTicketStatus,
+  updateTicketAssigne,
+  bulkUpdateStatus,
+  bulkUpdateAssigne,
+  bulkDeleteTickets,
+} from "./actions";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -309,7 +317,129 @@ function CreateTicketDialog({
   );
 }
 
-// ─── Ticket List ──────────────────────────────────────────
+// ─── Bulk Action Bar ─────────────────────────────────────
+
+function BulkActionBar({
+  selectedIds,
+  users,
+  onClear,
+  onDone,
+}: {
+  selectedIds: Set<number>;
+  users: UserOption[];
+  onClear: () => void;
+  onDone: () => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const count = selectedIds.size;
+  const ids = Array.from(selectedIds);
+
+  function handleStatusChange(statut: string | null) {
+    if (!statut) return;
+    startTransition(async () => {
+      await bulkUpdateStatus(ids, statut);
+      onDone();
+    });
+  }
+
+  function handleAssigneChange(val: string | null) {
+    const assigneId = val === "none" || !val ? null : parseInt(val);
+    startTransition(async () => {
+      await bulkUpdateAssigne(ids, assigneId);
+      onDone();
+    });
+  }
+
+  function handleDelete() {
+    startTransition(async () => {
+      await bulkDeleteTickets(ids);
+      setConfirmDelete(false);
+      onDone();
+    });
+  }
+
+  return (
+    <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-lg">
+      <span className="text-sm font-medium whitespace-nowrap">
+        <CheckSquare className="mr-1.5 inline h-4 w-4" />
+        {count} sélectionné{count > 1 ? "s" : ""}
+      </span>
+
+      <div className="h-5 w-px bg-border" />
+
+      {/* Changer statut */}
+      <Select onValueChange={handleStatusChange}>
+        <SelectTrigger className="h-8 w-36" disabled={isPending}>
+          Changer statut
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="ouvert">Ouvert</SelectItem>
+          <SelectItem value="en_cours">En cours</SelectItem>
+          <SelectItem value="resolu">Résolu</SelectItem>
+          <SelectItem value="ferme">Fermé</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Assigner */}
+      <Select onValueChange={handleAssigneChange}>
+        <SelectTrigger className="h-8 w-36" disabled={isPending}>
+          Assigner à
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Non assigné</SelectItem>
+          {users.map((u) => (
+            <SelectItem key={u.id} value={String(u.id)}>
+              {u.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Supprimer */}
+      {confirmDelete ? (
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={isPending}
+            onClick={handleDelete}
+          >
+            {isPending ? "Suppression..." : "Confirmer"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isPending}
+            onClick={() => setConfirmDelete(false)}
+          >
+            Annuler
+          </Button>
+        </div>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setConfirmDelete(true)}
+          disabled={isPending}
+        >
+          <Trash2 className="mr-1 h-3.5 w-3.5" />
+          Supprimer
+        </Button>
+      )}
+
+      <div className="h-5 w-px bg-border" />
+
+      <button
+        onClick={onClear}
+        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        disabled={isPending}
+      >
+        Désélectionner
+      </button>
+    </div>
+  );
+}
 
 // ─── Inline Row Controls ──────────────────────────────────
 
@@ -410,6 +540,7 @@ export function TicketList({
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
@@ -420,12 +551,50 @@ export function TicketList({
     });
   }, [tickets, showMine, statusFilter, projectFilter, currentUserId]);
 
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelected(new Set());
+  }, [showMine, statusFilter, projectFilter]);
+
   // Projets uniques pour le filtre
   const projectsInTickets = useMemo(() => {
     const map = new Map<number, string>();
     tickets.forEach((t) => map.set(t.projectId, t.projectTitre));
     return Array.from(map, ([id, titre]) => ({ id, titre }));
   }, [tickets]);
+
+  const allFilteredIds = useMemo(() => new Set(filtered.map((t) => t.id)), [filtered]);
+  const allSelected = filtered.length > 0 && filtered.every((t) => selected.has(t.id));
+  const someSelected = selected.size > 0;
+
+  const toggleAll = useCallback(() => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((t) => t.id)));
+    }
+  }, [allSelected, filtered]);
+
+  const toggleOne = useCallback((id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  // Only keep selected IDs that are in the filtered set
+  const activeSelection = useMemo(() => {
+    const s = new Set<number>();
+    for (const id of selected) {
+      if (allFilteredIds.has(id)) s.add(id);
+    }
+    return s;
+  }, [selected, allFilteredIds]);
 
   return (
     <div className="space-y-4">
@@ -500,6 +669,13 @@ export function TicketList({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={toggleAll}
+                    aria-label="Sélectionner tout"
+                  />
+                </TableHead>
                 <TableHead>Titre</TableHead>
                 <TableHead>Projet</TableHead>
                 <TableHead>Statut</TableHead>
@@ -510,7 +686,14 @@ export function TicketList({
             </TableHeader>
             <TableBody>
               {filtered.map((t) => (
-                <TableRow key={t.id}>
+                <TableRow key={t.id} data-state={selected.has(t.id) ? "selected" : undefined}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(t.id)}
+                      onCheckedChange={() => toggleOne(t.id)}
+                      aria-label={`Sélectionner ${t.titre}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">
                     <Link
                       href={`/tickets/${t.id}`}
@@ -547,6 +730,15 @@ export function TicketList({
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {activeSelection.size > 0 && (
+        <BulkActionBar
+          selectedIds={activeSelection}
+          users={users}
+          onClear={() => setSelected(new Set())}
+          onDone={() => setSelected(new Set())}
+        />
       )}
 
       <CreateTicketDialog
