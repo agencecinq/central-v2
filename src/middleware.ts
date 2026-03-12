@@ -15,7 +15,16 @@ export async function middleware(req: NextRequest) {
   // Allow auth API routes, public proposition pages, and widget API
   if (isAuthApi || isPublicProposition || isWidgetApi) return NextResponse.next();
 
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  // Auth.js v5 uses different cookie names for HTTPS vs HTTP.
+  // getToken needs secureCookie=true in production so it reads the right cookie
+  // (__Secure-authjs.session-token) and uses the correct salt for JWT decryption.
+  const isSecure = req.nextUrl.protocol === "https:";
+
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    secureCookie: isSecure,
+  });
   const isAuthenticated = !!token;
 
   // Redirect authenticated users away from login
