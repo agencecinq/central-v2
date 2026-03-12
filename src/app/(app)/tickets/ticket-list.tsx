@@ -536,25 +536,44 @@ export function TicketList({
   users: UserOption[];
   currentUserId: number;
 }) {
+  const ALL_STATUTS = ["ouvert", "en_cours", "resolu", "ferme"] as const;
+  const DEFAULT_STATUTS = new Set<string>(["ouvert", "en_cours", "resolu"]);
+
   const [showMine, setShowMine] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [activeStatuts, setActiveStatuts] = useState<Set<string>>(new Set(DEFAULT_STATUTS));
   const [projectFilter, setProjectFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
+  const toggleStatut = useCallback((statut: string) => {
+    setActiveStatuts((prev) => {
+      const next = new Set(prev);
+      if (next.has(statut)) {
+        // Don't allow deselecting all
+        if (next.size <= 1) return prev;
+        next.delete(statut);
+      } else {
+        next.add(statut);
+      }
+      return next;
+    });
+  }, []);
+
+  const allStatutsActive = activeStatuts.size === ALL_STATUTS.length;
+
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
       if (showMine && t.assigneId !== currentUserId) return false;
-      if (statusFilter !== "all" && t.statut !== statusFilter) return false;
+      if (!activeStatuts.has(t.statut)) return false;
       if (projectFilter !== "all" && String(t.projectId) !== projectFilter) return false;
       return true;
     });
-  }, [tickets, showMine, statusFilter, projectFilter, currentUserId]);
+  }, [tickets, showMine, activeStatuts, projectFilter, currentUserId]);
 
   // Clear selection when filters change
   useEffect(() => {
     setSelected(new Set());
-  }, [showMine, statusFilter, projectFilter]);
+  }, [showMine, activeStatuts, projectFilter]);
 
   // Projets uniques pour le filtre
   const projectsInTickets = useMemo(() => {
@@ -607,18 +626,21 @@ export function TicketList({
           {showMine ? "Mes tickets" : "Tous les tickets"}
         </Button>
 
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
-          <SelectTrigger className="w-40">
-            {statusFilter === "all" ? "Tous les statuts" : (statutLabels[statusFilter] ?? statusFilter)}
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="ouvert">Ouvert</SelectItem>
-            <SelectItem value="en_cours">En cours</SelectItem>
-            <SelectItem value="resolu">Résolu</SelectItem>
-            <SelectItem value="ferme">Fermé</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1 rounded-md border p-0.5">
+          {ALL_STATUTS.map((s) => (
+            <button
+              key={s}
+              onClick={() => toggleStatut(s)}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                activeStatuts.has(s)
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              {statutLabels[s]}
+            </button>
+          ))}
+        </div>
 
         <Select value={projectFilter} onValueChange={(v) => setProjectFilter(v ?? "all")}>
           <SelectTrigger className="w-52">
@@ -636,11 +658,11 @@ export function TicketList({
           </SelectContent>
         </Select>
 
-        {(showMine || statusFilter !== "all" || projectFilter !== "all") && (
+        {(showMine || !allStatutsActive || projectFilter !== "all") && (
           <button
             onClick={() => {
               setShowMine(false);
-              setStatusFilter("all");
+              setActiveStatuts(new Set(ALL_STATUTS));
               setProjectFilter("all");
             }}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
