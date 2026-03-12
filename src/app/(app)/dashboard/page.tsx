@@ -42,11 +42,20 @@ export default async function DashboardPage() {
   ]);
 
   // Build layout: use saved or default, filtering admin-only widgets for non-admins
-  const layout = savedLayout
-    ? JSON.parse(savedLayout.layout)
-    : DEFAULT_LAYOUT.filter(
-        (w) => userIsAdmin || !ADMIN_ONLY_WIDGETS.has(w.i),
-      );
+  // Merge new widgets from DEFAULT_LAYOUT into saved layouts so they appear automatically
+  const allowedDefaults = DEFAULT_LAYOUT.filter(
+    (w) => userIsAdmin || !ADMIN_ONLY_WIDGETS.has(w.i),
+  );
+
+  let layout: typeof DEFAULT_LAYOUT;
+  if (savedLayout) {
+    const saved = JSON.parse(savedLayout.layout) as typeof DEFAULT_LAYOUT;
+    const savedIds = new Set(saved.map((w) => w.i));
+    const missing = allowedDefaults.filter((w) => !savedIds.has(w.i));
+    layout = [...saved, ...missing];
+  } else {
+    layout = allowedDefaults;
+  }
 
   const widgetData: WidgetData = {
     [WIDGET_IDS.PROJETS]: { count: projects.length, items: projects },
