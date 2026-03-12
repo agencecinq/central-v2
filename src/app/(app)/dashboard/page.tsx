@@ -1,6 +1,20 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { isAdmin } from "@/lib/roles";
+import { prisma } from "@/lib/prisma";
+import { DashboardGrid } from "./dashboard-grid";
+import type { WidgetData } from "./dashboard-grid";
+import {
+  DEFAULT_LAYOUT,
+  ADMIN_ONLY_WIDGETS,
+  WIDGET_IDS,
+} from "./lib/dashboard-defaults";
+import {
+  getActiveProjects,
+  getUserTasks,
+  getOpenTickets,
+  getFinanceSummary,
+} from "./lib/dashboard-queries";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -9,10 +23,35 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // Redirect clients to their dedicated portal
   if (session.user.role === "client") {
     redirect("/espace-client");
   }
+
+  const userId = parseInt(session.user.id);
+  const userIsAdmin = isAdmin(session.user.role);
+
+  // Parallel fetch: layout + all widget data
+  const [savedLayout, projects, tasks, tickets, finance] = await Promise.all([
+    prisma.dashboardLayout.findUnique({ where: { userId } }),
+    getActiveProjects(),
+    getUserTasks(userId),
+    getOpenTickets(),
+    userIsAdmin ? getFinanceSummary() : Promise.resolve(null),
+  ]);
+
+  // Build layout: use saved or default, filtering admin-only widgets for non-admins
+  const layout = savedLayout
+    ? JSON.parse(savedLayout.layout)
+    : DEFAULT_LAYOUT.filter(
+        (w) => userIsAdmin || !ADMIN_ONLY_WIDGETS.has(w.i),
+      );
+
+  const widgetData: WidgetData = {
+    [WIDGET_IDS.PROJETS]: { count: projects.length, items: projects },
+    [WIDGET_IDS.TACHES]: { count: tasks.length, items: tasks },
+    [WIDGET_IDS.TICKETS]: { count: tickets.length, items: tickets },
+    [WIDGET_IDS.FINANCE]: finance,
+  };
 
   const firstName = session.user.name?.split(" ")[0] ?? "";
 
@@ -27,46 +66,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Projets actifs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">&mdash;</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tâches en cours
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">&mdash;</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Prochaine échéance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">&mdash;</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-muted-foreground">
-            Les fonctionnalités arrivent bientôt.
-          </p>
-        </CardContent>
-      </Card>
+      <DashboardGrid initialLayout={layout} widgetData={widgetData} />
     </div>
   );
 }

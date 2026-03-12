@@ -36,6 +36,7 @@ model User {
   userMetiers       UserMetier[]
   ticketsCreated    Ticket[]  @relation("TicketCreateur")
   ticketsAssigned   Ticket[]  @relation("TicketAssigne")
+  dashboardLayout   DashboardLayout?
 
   @@map("users")
 }
@@ -371,6 +372,18 @@ model UserMetier {
 
   @@unique([userId, metierId])
   @@map("user_metiers")
+}
+
+model DashboardLayout {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  layout    String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("dashboard_layouts")
 }
 
 model ProjectAllocation {
