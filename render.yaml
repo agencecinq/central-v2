@@ -14,7 +14,7 @@ services:
     plan: starter
     branch: main
     buildCommand: npm install && rm -rf src/generated/prisma && npx prisma generate && npm run build
-    startCommand: npm start -- -p $PORT
+    startCommand: node .next/standalone/server.js
     healthCheckPath: /login
     envVars:
       - key: NODE_ENV
