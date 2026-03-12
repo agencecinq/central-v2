@@ -14,7 +14,7 @@ services:
     plan: starter
     branch: main
     buildCommand: npm install && rm -rf src/generated/prisma && npx prisma generate && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public
-    startCommand: node .next/standalone/server.js
+    startCommand: PORT=$PORT node .next/standalone/server.js
     healthCheckPath: /login
     envVars:
       - key: NODE_ENV
@@ -37,3 +37,5 @@ services:
         sync: false
       - key: QONTO_SECRET_KEY
         sync: false
+      - key: AUTH_TRUST_HOST
+        value: "true"

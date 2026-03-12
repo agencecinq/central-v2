@@ -1,249 +1,196 @@
-# Migration CinqCentral V1 → V2 (Render + PostgreSQL)
+# Migration MySQL (Infomaniak) -> PostgreSQL (Render)
+
+Guide de migration des donnees de CinqCentral V1 (MySQL/MariaDB sur Infomaniak) vers V2 (PostgreSQL sur Render).
 
 ## Architecture cible
 
 ```
-┌─────────────────────┐      ┌──────────────────────────┐
-│  Render Web Service  │ ──── │  Render PostgreSQL        │
-│  (Next.js app)       │      │  (plan Starter, 7$/mois)  │
-│  Frankfurt region    │      │  Frankfurt region          │
-└─────────────────────┘      └──────────────────────────┘
-```
-
-Tout est sur Render, meme region, zero latence.
-
----
-
-## Pre-requis
-
-- Acces SSH/MySQL a la BDD Infomaniak existante
-- `pgloader` installe en local (`brew install pgloader`)
-- Repo GitHub connecte a Render
-
----
-
-## Etape 1 — Backup de la BDD MySQL existante
-
-```bash
-mysqldump -h 0n71bc.myd.infomaniak.com \
-  -u 0n71bc_central -p \
-  --single-transaction \
-  --routines \
-  --triggers \
-  --set-gtid-purged=OFF \
-  0n71bc_central > backup_mysql_$(date +%Y%m%d).sql
-```
-
-Verifier que le dump est complet :
-
-```bash
-tail -5 backup_mysql_$(date +%Y%m%d).sql
-# Doit afficher "Dump completed"
++----------------------+      +----------------------------+
+|  Render Web Service  | ---- |  Render PostgreSQL         |
+|  (Next.js standalone)|      |  (plan Basic, Frankfurt)   |
+|  Frankfurt region    |      |  DATABASE_URL auto-liee    |
++----------------------+      +----------------------------+
 ```
 
 ---
 
-## Etape 2 — Executer la migration V1 → V2 sur MySQL
+## Prerequis
 
-Si ce n'est pas deja fait, appliquer le script de migration sur la BDD Infomaniak :
-
-```bash
-mysql -h 0n71bc.myd.infomaniak.com \
-  -u 0n71bc_central -p \
-  0n71bc_central < migration-v2.sql
-```
-
-Ce script :
-- Convertit les colonnes `enum` en `varchar`
-- Restructure la table `tickets`
-- Renomme `ticket_files` → `ticket_attachments`
-- Cree les nouvelles tables V2
+- **psql** installe localement (`brew install postgresql` sur macOS)
+- Acces a phpMyAdmin Infomaniak
+- Acces au dashboard Render avec la base PostgreSQL creee
+- Node.js >= 20
 
 ---
 
-## Etape 3 — Deployer sur Render (Blueprint)
+## Etape 1 — Exporter le dump MySQL
 
-### 3.1 Creer les services via Blueprint
-
-1. Aller sur [dashboard.render.com](https://dashboard.render.com)
-2. **New** → **Blueprint** → connecter le repo GitHub
-3. Render detecte `render.yaml` et cree automatiquement :
-   - Un **Web Service** `cinq-central`
-   - Une **base PostgreSQL** `cinq-central-db`
-4. La variable `DATABASE_URL` est auto-configuree
-
-### 3.2 Configurer les variables d'environnement
-
-Dans le dashboard Render > Environment, remplir les variables `sync: false` :
-
-| Variable | Valeur |
-|----------|--------|
-| `NEXTAUTH_URL` | `https://cinq-central.onrender.com` (ou domaine custom) |
-| `NEXT_PUBLIC_APP_URL` | Meme valeur que `NEXTAUTH_URL` |
-| `GOOGLE_CLIENT_ID` | Ton Client ID Google |
-| `GOOGLE_CLIENT_SECRET` | Ton Client Secret Google |
-| `QONTO_LOGIN` | Login API Qonto |
-| `QONTO_SECRET_KEY` | Cle API Qonto |
-
-`AUTH_SECRET` et `DATABASE_URL` sont auto-generes par le blueprint.
-
-### 3.3 Google OAuth — Ajouter l'URL de callback
-
-Dans la [Google Cloud Console](https://console.cloud.google.com/apis/credentials) :
-
-```
-https://cinq-central.onrender.com/api/auth/callback/google
-```
+1. Aller sur phpMyAdmin Infomaniak
+2. Selectionner la base `0n71bc_central`
+3. Exporter en **SQL** avec les options :
+   - Format : SQL
+   - Methode : Personnalisee
+   - Encodage : UTF-8
+4. Sauvegarder le fichier `.sql`
 
 ---
 
-## Etape 4 — Migrer les donnees MySQL → PostgreSQL
+## Etape 2 — Recuperer la connection string PostgreSQL
 
-### 4.1 Recuperer l'URL PostgreSQL Render
-
-Dans le dashboard Render > PostgreSQL > cinq-central-db > **Info** > **External Database URL**.
+Dans le dashboard Render :
+1. Aller dans **Databases** > `cinq-central-db`
+2. Copier la **External Database URL**
 
 Format : `postgresql://cinq:PASSWORD@HOST:5432/cinq_central`
 
-### 4.2 Creer le schema PostgreSQL
+---
 
-Depuis le projet local :
-
-```bash
-# Pointer Prisma vers la BDD Render
-export DATABASE_URL="postgresql://cinq:PASSWORD@HOST:5432/cinq_central"
-
-# Pousser le schema (cree les tables vides)
-npx prisma db push
-```
-
-### 4.3 Migrer les donnees avec pgloader
-
-Creer un fichier `pgloader.conf` :
-
-```
-LOAD DATABASE
-  FROM mysql://0n71bc_central:MOT_DE_PASSE@0n71bc.myd.infomaniak.com:3306/0n71bc_central
-  INTO postgresql://cinq:PASSWORD@HOST:5432/cinq_central
-
-WITH
-  data only,
-  truncate,
-  disable triggers,
-  reset sequences
-
-EXCLUDING TABLE NAMES MATCHING
-  'migrations',
-  'failed_jobs',
-  'password_reset_tokens',
-  'personal_access_tokens',
-  'sessions',
-  'time_entries'
-
-CAST
-  type tinyint to boolean using tinyint-to-boolean
-;
-```
-
-Lancer la migration :
+## Etape 3 — Lancer la migration
 
 ```bash
-pgloader pgloader.conf
+cd cinq-central-v2
+./scripts/migrate-mysql-to-pg.sh chemin/vers/dump.sql "postgresql://cinq:PASSWORD@HOST:5432/cinq_central"
 ```
 
-### 4.4 Verifier les donnees
-
-```bash
-# Se connecter a la BDD PostgreSQL Render
-psql "postgresql://cinq:PASSWORD@HOST:5432/cinq_central"
-
-# Verifier les comptes
-SELECT count(*) FROM users;
-SELECT count(*) FROM clients;
-SELECT count(*) FROM projects;
-SELECT count(*) FROM deals;
-SELECT count(*) FROM transactions;
-SELECT count(*) FROM tickets;
-```
-
-### 4.5 Resynchroniser les sequences auto-increment
-
-pgloader ne met pas a jour les sequences PostgreSQL. Les resynchroniser :
-
-```sql
--- Executer dans psql apres l'import
-DO $$
-DECLARE
-  r RECORD;
-BEGIN
-  FOR r IN
-    SELECT c.table_name, c.column_name,
-           pg_get_serial_sequence(c.table_name, c.column_name) AS seq
-    FROM information_schema.columns c
-    WHERE c.column_default LIKE 'nextval%'
-      AND c.table_schema = 'public'
-  LOOP
-    EXECUTE format(
-      'SELECT setval(%L, COALESCE((SELECT MAX(%I) FROM %I), 0) + 1, false)',
-      r.seq, r.column_name, r.table_name
-    );
-  END LOOP;
-END $$;
-```
+Le script effectue 4 etapes :
+1. **Schema** — Cree les tables PostgreSQL via `prisma db push`
+2. **Conversion** — Convertit le SQL MySQL en SQL PostgreSQL compatible
+3. **Import** — Insere les donnees dans PostgreSQL
+4. **Verification** — Affiche le nombre de lignes par table
 
 ---
 
-## Etape 5 — Domaine personnalise (optionnel)
+## Mapping des tables
+
+### Tables migrees automatiquement
+
+| MySQL (V1) | PostgreSQL (V2) | Notes |
+|---|---|---|
+| `clients` | `clients` | Direct |
+| `users` | `users` | Roles `pm`/`commercial` -> `equipe` |
+| `deals` | `deals` | Direct |
+| `projects` | `projects` | Booleens `tinyint` -> `boolean` |
+| `tasks` | `tasks` | Booleens `tinyint` -> `boolean` |
+| `tickets` | `tickets` | `user_id` -> `createur_id`, ajout `statut` |
+| `ticket_files` | `ticket_attachments` | Colonnes renommees |
+| `transactions` | `transactions` | Direct |
+| `proposition_commerciales` | `proposition_commerciales` | Direct |
+| `proposition_commerciale_sections` | `proposition_commerciale_sections` | Direct |
+| `proposition_commerciale_sous_sections` | `proposition_commerciale_sous_sections` | Direct |
+| `proposition_commerciale_planning_etapes` | `proposition_commerciale_planning_etapes` | Direct |
+
+### Tables NON migrees (volontaire)
+
+| Table | Raison |
+|---|---|
+| `cache`, `sessions` | Donnees de runtime, regenerees automatiquement |
+| `migrations` | Specifique a Laravel |
+| `sprints`, `sprint_task` | Feature retiree en V2 |
+| `project_templates`, `project_template_tasks` | Feature retiree en V2 |
+| `forecast_expense_entries`, `forecast_revenue_entries` | Remplace par `forecast_expenses_v2` |
+| `calendar_event_imports` | Feature retiree en V2 |
+| `time_entries` (V1) | Schema completement different en V2 |
+
+### Tables nouvelles (V2 uniquement)
+
+| Table | Description |
+|---|---|
+| `metiers` | Metiers de l'equipe (dev, design, etc.) |
+| `user_metiers` | Association utilisateur <-> metier |
+| `project_allocations` | Allocation de jours par metier sur un projet |
+| `time_entries_v2` | Timetracking par semaine (nouveau format) |
+| `deal_factures` | Factures liees aux deals (sync Qonto) |
+| `deal_revenu_planifie` | Previsionnel de revenus par mois |
+| `forecast_expenses_v2` | Previsionnel de depenses |
+| `invoice_planification` | Planification des factures |
+
+---
+
+## Changements de schema importants
+
+### TimeEntry (incompatible)
+
+**V1** : une entree = une session de travail avec `started_at`, `ended_at`, `duration_minutes`, `date`
+
+**V2** : une entree = une saisie hebdomadaire avec `semaine` (format "2026-W11"), `duree` (en heures), `categorie`
+
+Les time entries V1 ne sont **pas migrees automatiquement**. Si tu as besoin des donnees historiques, il faudra un script de conversion specifique.
+
+### Tickets
+
+- `user_id` -> `createur_id` (le createur du ticket)
+- Nouveau champ `assigne_id` (personne assignee)
+- Champs supprimes : `lien`, `position_x`, `position_y`, `type`, `est_resolu`
+- Nouveaux champs : `statut`, `navigateur`, `taille_ecran`, `meta_info`
+
+### Roles utilisateurs
+
+| V1 | V2 |
+|---|---|
+| `admin` | `admin` |
+| `pm` | `equipe` |
+| `commercial` | `equipe` |
+| `client` | `client` |
+
+---
+
+## Etape 4 — Creer les donnees V2
+
+Apres la migration, creer les nouvelles entites dans l'interface admin :
+
+### Metiers
+
+```sql
+INSERT INTO metiers (nom, created_at) VALUES
+  ('Developpement', NOW()),
+  ('Design', NOW()),
+  ('Gestion de projet', NOW()),
+  ('Marketing', NOW());
+```
+
+### User-Metiers et Allocations
+
+Configurer via l'interface admin de l'application.
+
+---
+
+## Etape 5 — Configurer Google OAuth
+
+1. Aller dans la [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Ajouter l'URI de redirection :
+   ```
+   https://app.cinqteam.com/api/auth/callback/google
+   ```
+3. Verifier que `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET` sont dans les variables Render
+
+---
+
+## Etape 6 — Domaine personnalise
 
 1. Dans Render > Settings > Custom Domains, ajouter `app.cinqteam.com`
 2. Ajouter un enregistrement DNS :
-
-```
-CNAME  app  cinq-central.onrender.com
-```
-
+   ```
+   CNAME  app  cinq-central.onrender.com
+   ```
 3. Render provisionne le certificat SSL automatiquement
-4. Mettre a jour `NEXTAUTH_URL` et `NEXT_PUBLIC_APP_URL`
+4. Mettre a jour `NEXTAUTH_URL` et `NEXT_PUBLIC_APP_URL` avec `https://app.cinqteam.com`
 5. Mettre a jour l'URI de callback Google OAuth
+6. Ajouter `AUTH_TRUST_HOST=true` dans les variables d'environnement
 
 ---
 
-## Etape 6 — Verification post-migration
+## Verification post-migration
 
 - [ ] L'app repond sur l'URL de production
 - [ ] Login Google OAuth fonctionne
 - [ ] Les donnees existantes (clients, projets, deals) sont presentes
-- [ ] Les booleens sont correctement migres (tinyint → boolean)
+- [ ] Les booleens sont correctement migres
 - [ ] Les montants Decimal sont corrects
-- [ ] Le timetracking fonctionne
-- [ ] Les transactions et la synchro Qonto fonctionnent
-- [ ] Le widget tickets fonctionne (verifier `NEXT_PUBLIC_APP_URL`)
+- [ ] Le widget tickets fonctionne
 - [ ] Les propositions commerciales publiques sont accessibles
 
 ---
 
 ## Rollback
 
-La V1 reste sur Infomaniak avec sa BDD MySQL intacte. En cas de probleme :
-
-1. Repointer le DNS vers l'ancien serveur
-2. Ou restaurer le dump MySQL :
-
-```bash
-mysql -h 0n71bc.myd.infomaniak.com \
-  -u 0n71bc_central -p \
-  0n71bc_central < backup_mysql_YYYYMMDD.sql
-```
-
----
-
-## Tables exclues de la migration
-
-| Table MySQL | Raison |
-|-------------|--------|
-| `migrations` | Specifique a Laravel V1 |
-| `failed_jobs` | Specifique a Laravel V1 |
-| `password_reset_tokens` | Specifique a Laravel V1 |
-| `personal_access_tokens` | Specifique a Laravel V1 |
-| `sessions` | Specifique a Laravel V1 |
-| `time_entries` | Remplacees par `time_entries_v2` |
+La V1 reste sur Infomaniak avec sa BDD MySQL intacte. Aucune modification n'est faite sur la source. Pour revenir en arriere, repointer le DNS vers l'ancien serveur.
