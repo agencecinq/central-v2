@@ -25,6 +25,7 @@ import Link from "next/link";
 import { updateDealEtape, deleteDeal } from "./actions";
 import { DealDialog } from "./deal-dialog";
 import { DeleteDialog } from "./delete-dialog";
+import { WonDealDialog } from "./won-deal-dialog";
 
 interface DealData {
   id: number;
@@ -74,6 +75,8 @@ export function SalesPipeline({
   const [deletingDeal, setDeletingDeal] = useState<DealData | null>(null);
   const [showWon, setShowWon] = useState(false);
   const [showLost, setShowLost] = useState(false);
+  const [wonDeal, setWonDeal] = useState<DealData | null>(null);
+  const [wonOpen, setWonOpen] = useState(false);
 
   const draggedDealId = useRef<number | null>(null);
 
@@ -119,8 +122,9 @@ export function SalesPipeline({
     setDeleteOpen(true);
   }
 
-  async function markWon(deal: DealData) {
-    await updateDealEtape(deal.id, "Gagné");
+  function markWon(deal: DealData) {
+    setWonDeal(deal);
+    setWonOpen(true);
   }
 
   async function markLost(deal: DealData) {
@@ -267,6 +271,12 @@ export function SalesPipeline({
         onConfirm={async () => {
           if (deletingDeal) await deleteDeal(deletingDeal.id);
         }}
+      />
+
+      <WonDealDialog
+        deal={wonDeal}
+        open={wonOpen}
+        onOpenChange={setWonOpen}
       />
     </div>
   );

@@ -72,6 +72,43 @@ export async function updateDealEtape(dealId: number, etape: string) {
   revalidatePath("/crm");
 }
 
+export async function markDealWon(
+  dealId: number,
+  montantFinal: number,
+  dateSignature: string,
+) {
+  if (isNaN(montantFinal) || montantFinal <= 0)
+    throw new Error("Le montant final est requis");
+
+  const deal = await prisma.deal.findUniqueOrThrow({
+    where: { id: dealId },
+    select: { titre: true, clientId: true },
+  });
+
+  await prisma.$transaction([
+    prisma.deal.update({
+      where: { id: dealId },
+      data: {
+        etape: "Gagné",
+        montantFinal,
+        dateSignature: new Date(dateSignature),
+      },
+    }),
+    prisma.project.create({
+      data: {
+        titre: deal.titre,
+        clientId: deal.clientId,
+        dealId,
+        statut: "en_attente",
+        budgetTotal: montantFinal,
+      },
+    }),
+  ]);
+
+  revalidatePath("/crm");
+  revalidatePath("/projets");
+}
+
 export async function deleteDeal(dealId: number) {
   await prisma.deal.delete({ where: { id: dealId } });
   revalidatePath("/crm");

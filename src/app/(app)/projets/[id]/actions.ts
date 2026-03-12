@@ -21,6 +21,40 @@ export async function generateWidgetToken(projectId: number): Promise<string> {
 
 // ─── Project ─────────────────────────────────────────────
 
+export async function createProject(formData: FormData) {
+  const titre = formData.get("titre") as string;
+  if (!titre?.trim()) throw new Error("Le titre est requis");
+
+  const project = await prisma.project.create({
+    data: {
+      titre: titre.trim(),
+      description: (formData.get("description") as string)?.trim() || null,
+      statut: (formData.get("statut") as string) || "en_attente",
+      clientId: formData.get("clientId")
+        ? parseInt(formData.get("clientId") as string)
+        : null,
+      chefProjetId: formData.get("chefProjetId")
+        ? parseInt(formData.get("chefProjetId") as string)
+        : null,
+      dealId: formData.get("dealId")
+        ? parseInt(formData.get("dealId") as string)
+        : null,
+      budgetTotal: formData.get("budgetTotal")
+        ? parseFloat(formData.get("budgetTotal") as string)
+        : 0,
+      dateDebut: formData.get("dateDebut")
+        ? new Date(formData.get("dateDebut") as string)
+        : null,
+      deadline: formData.get("deadline")
+        ? new Date(formData.get("deadline") as string)
+        : null,
+    },
+  });
+
+  revalidatePath("/projets");
+  return project.id;
+}
+
 export async function deleteProject(projectId: number) {
   // Delete all related data in dependency order, then the project itself
   await prisma.$transaction([

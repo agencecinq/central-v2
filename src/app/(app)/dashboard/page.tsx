@@ -14,6 +14,7 @@ import {
   getUserTasks,
   getOpenTickets,
   getFinanceSummary,
+  getWeeklyTime,
 } from "./lib/dashboard-queries";
 
 export default async function DashboardPage() {
@@ -31,12 +32,13 @@ export default async function DashboardPage() {
   const userIsAdmin = isAdmin(session.user.role);
 
   // Parallel fetch: layout + all widget data
-  const [savedLayout, projects, tasks, tickets, finance] = await Promise.all([
+  const [savedLayout, projects, tasks, tickets, finance, weeklyTime] = await Promise.all([
     prisma.dashboardLayout.findUnique({ where: { userId } }),
     getActiveProjects(),
     getUserTasks(userId),
     getOpenTickets(),
     userIsAdmin ? getFinanceSummary() : Promise.resolve(null),
+    getWeeklyTime(userId),
   ]);
 
   // Build layout: use saved or default, filtering admin-only widgets for non-admins
@@ -51,6 +53,7 @@ export default async function DashboardPage() {
     [WIDGET_IDS.TACHES]: { count: tasks.length, items: tasks },
     [WIDGET_IDS.TICKETS]: { count: tickets.length, items: tickets },
     [WIDGET_IDS.FINANCE]: finance,
+    [WIDGET_IDS.TEMPS]: weeklyTime,
   };
 
   const firstName = session.user.name?.split(" ")[0] ?? "";

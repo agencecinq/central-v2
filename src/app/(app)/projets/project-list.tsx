@@ -1,11 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { LayoutGrid, List } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LayoutGrid, List, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -20,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { createProject } from "./[id]/actions";
 
 interface Project {
   id: number;
@@ -39,6 +50,152 @@ interface ClientOption {
   id: number;
   label: string;
 }
+
+interface UserOption {
+  id: number;
+  name: string;
+}
+
+// ─── Create Project Dialog ───────────────────────────────
+
+function CreateProjectDialog({
+  clients,
+  users,
+  open,
+  onOpenChange,
+}: {
+  clients: ClientOption[];
+  users: UserOption[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [clientId, setClientId] = useState<string>("none");
+  const [chefProjetId, setChefProjetId] = useState<string>("none");
+  const [statut, setStatut] = useState<string>("en_attente");
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    formData.set("clientId", clientId === "none" ? "" : clientId);
+    formData.set("chefProjetId", chefProjetId === "none" ? "" : chefProjetId);
+    formData.set("statut", statut);
+
+    startTransition(async () => {
+      const projectId = await createProject(formData);
+      onOpenChange(false);
+      router.push(`/projets/${projectId}`);
+    });
+  }
+
+  const clientLabel =
+    clientId === "none"
+      ? "Aucun"
+      : clients.find((c) => String(c.id) === clientId)?.label ?? "Sélectionner";
+  const chefLabel =
+    chefProjetId === "none"
+      ? "Aucun"
+      : users.find((u) => String(u.id) === chefProjetId)?.name ?? "Sélectionner";
+  const statutLabel =
+    { en_attente: "En attente", en_cours: "En cours", termine: "Terminé" }[
+      statut
+    ] ?? statut;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Nouveau projet</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="titre">Titre *</Label>
+            <Input id="titre" name="titre" required placeholder="Nom du projet" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Client</Label>
+              <Select value={clientId} onValueChange={(v) => setClientId(v ?? "none")}>
+                <SelectTrigger className="w-full">{clientLabel}</SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Chef de projet</Label>
+              <Select
+                value={chefProjetId}
+                onValueChange={(v) => setChefProjetId(v ?? "none")}
+              >
+                <SelectTrigger className="w-full">{chefLabel}</SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Statut</Label>
+              <Select value={statut} onValueChange={(v) => setStatut(v ?? "en_attente")}>
+                <SelectTrigger className="w-full">{statutLabel}</SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en_attente">En attente</SelectItem>
+                  <SelectItem value="en_cours">En cours</SelectItem>
+                  <SelectItem value="termine">Terminé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="budgetTotal">Budget total (€)</Label>
+              <Input
+                id="budgetTotal"
+                name="budgetTotal"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dateDebut">Date début</Label>
+              <Input id="dateDebut" name="dateDebut" type="date" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deadline">Deadline</Label>
+              <Input id="deadline" name="deadline" type="date" />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Création..." : "Créer"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Constants ────────────────────────────────────────────
 
 const statutLabels: Record<string, string> = {
   en_attente: "En attente",
@@ -90,13 +247,18 @@ function BudgetBar({ consumed, total }: { consumed: number; total: number }) {
 export function ProjectList({
   projects,
   clients,
+  allClients,
+  users,
 }: {
   projects: Project[];
   clients: ClientOption[];
+  allClients: ClientOption[];
+  users: UserOption[];
 }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [createOpen, setCreateOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
@@ -170,6 +332,10 @@ export function ProjectList({
               <List className="h-4 w-4" />
             </Button>
           </div>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            Nouveau projet
+          </Button>
         </div>
       </div>
 
@@ -269,6 +435,13 @@ export function ProjectList({
           </Table>
         </div>
       )}
+
+      <CreateProjectDialog
+        clients={allClients}
+        users={users}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+      />
     </div>
   );
 }

@@ -39,6 +39,7 @@ export async function createTimeEntry(data: {
   });
 
   revalidatePath(PATH);
+  revalidatePath("/dashboard");
 }
 
 export async function updateTimeEntry(data: {

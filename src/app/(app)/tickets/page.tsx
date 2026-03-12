@@ -35,7 +35,7 @@ export default async function TicketsPage() {
   const tickets = await prisma.ticket.findMany({
     where: projectFilter ? { project: projectFilter } : undefined,
     include: {
-      project: { select: { id: true, titre: true, chefProjetId: true } },
+      project: { select: { id: true, titre: true, chefProjetId: true, statut: true } },
       createur: { select: { id: true, name: true } },
       assigne: { select: { id: true, name: true } },
       _count: { select: { attachments: true } },
@@ -49,6 +49,7 @@ export default async function TicketsPage() {
     statut: t.statut,
     projectId: t.projectId,
     projectTitre: t.project.titre,
+    projectStatut: t.project.statut,
     projectChefProjetId: t.project.chefProjetId,
     createurName: t.createur?.name ?? getWidgetLabel(t.metaInfo),
     assigneId: t.assigneId,

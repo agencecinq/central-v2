@@ -181,3 +181,73 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
 
   return { balance, pendingCount, pendingTotal, resteAFacturer, dealsCount, qontoError };
 }
+
+// ─── Temps de la semaine ────────────────────────────────────────────────────
+
+export interface WeeklyTimeEntry {
+  id: number;
+  projectTitre: string;
+  categorie: string;
+  duree: number;
+  unite: string;
+}
+
+export interface WeeklyTimeData {
+  totalHeures: number;
+  totalJours: number;
+  entries: WeeklyTimeEntry[];
+  projects: { id: number; titre: string }[];
+}
+
+function isoWeek(d: Date): string {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(
+    ((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+  );
+  return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+export async function getWeeklyTime(userId: number): Promise<WeeklyTimeData> {
+  const currentWeek = isoWeek(new Date());
+
+  const [entries, projects] = await Promise.all([
+    prisma.timeEntry.findMany({
+      where: { userId, semaine: currentWeek },
+      select: {
+        id: true,
+        duree: true,
+        unite: true,
+        categorie: true,
+        project: { select: { titre: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.project.findMany({
+      where: { statut: { in: ["en_cours", "en_attente"] }, isPersonnel: false },
+      select: { id: true, titre: true },
+      orderBy: { titre: "asc" },
+    }),
+  ]);
+
+  let totalHeures = 0;
+  for (const e of entries) {
+    const d = Number(e.duree);
+    totalHeures += e.unite === "jours" ? d * 8 : d;
+  }
+
+  return {
+    totalHeures,
+    totalJours: Math.round((totalHeures / 8) * 10) / 10,
+    entries: entries.map((e) => ({
+      id: e.id,
+      projectTitre: e.project?.titre ?? "—",
+      categorie: e.categorie,
+      duree: Number(e.duree),
+      unite: e.unite,
+    })),
+    projects,
+  };
+}

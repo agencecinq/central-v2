@@ -5,7 +5,7 @@ import { computeBudgetConsomme } from "@/lib/compute-budget";
 import { ProjectList } from "./project-list";
 
 export default async function ProjetsPage() {
-  const [projects, clients] = await Promise.all([
+  const [projects, allClients, users] = await Promise.all([
     prisma.project.findMany({
       include: {
         client: true,
@@ -15,8 +15,12 @@ export default async function ProjetsPage() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.client.findMany({
-      where: { projects: { some: {} } },
       orderBy: { entreprise: "asc" },
+    }),
+    prisma.user.findMany({
+      where: { role: { in: ["admin", "equipe"] } },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -48,9 +52,25 @@ export default async function ProjetsPage() {
     };
   });
 
-  const clientOptions = clients.map((c) => ({
+  // Clients qui ont des projets (pour le filtre)
+  const clientsWithProjects = allClients.filter((c) =>
+    projects.some((p) => p.clientId === c.id),
+  );
+
+  const clientOptions = clientsWithProjects.map((c) => ({
     id: c.id,
     label: c.entreprise ?? c.nom,
+  }));
+
+  // Tous les clients (pour le dialog de création)
+  const allClientOptions = allClients.map((c) => ({
+    id: c.id,
+    label: c.entreprise ?? c.nom,
+  }));
+
+  const userOptions = users.map((u) => ({
+    id: u.id,
+    name: u.name ?? "",
   }));
 
   return (
@@ -71,7 +91,12 @@ export default async function ProjetsPage() {
         </Link>
       </div>
 
-      <ProjectList projects={serialized} clients={clientOptions} />
+      <ProjectList
+        projects={serialized}
+        clients={clientOptions}
+        allClients={allClientOptions}
+        users={userOptions}
+      />
     </div>
   );
 }
