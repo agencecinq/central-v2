@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
 }
 
 model User {
@@ -65,7 +65,7 @@ model Deal {
   etape                 String    @default("Prospect") @db.VarChar(50)
   montantFinal          Decimal?  @map("montant_final") @db.Decimal(15, 2)
   qontoQuoteId          String?   @map("qonto_quote_id") @db.VarChar(255)
-  modalitesFacturation  String?   @map("modalites_facturation") @db.LongText
+  modalitesFacturation  String?   @map("modalites_facturation") @db.Text
   dateSignature         DateTime? @map("date_signature") @db.Date
   createdAt             DateTime? @map("created_at")
   updatedAt             DateTime? @map("updated_at")
@@ -93,10 +93,10 @@ model PropositionCommerciale {
   tauxTva                     Decimal   @default(20) @map("taux_tva") @db.Decimal(5, 2)
   tauxGestionProjet           Decimal   @default(20) @map("taux_gestion_projet") @db.Decimal(5, 2)
   tjmGestionProjet            Decimal   @default(800) @map("tjm_gestion_projet") @db.Decimal(10, 2)
-  beneficesCles               String?   @map("benefices_cles") @db.LongText
-  informationsComplementaires String?   @map("informations_complementaires") @db.LongText
-  callToAction                String?   @map("call_to_action") @db.LongText
-  references                  String?   @db.LongText
+  beneficesCles               String?   @map("benefices_cles") @db.Text
+  informationsComplementaires String?   @map("informations_complementaires") @db.Text
+  callToAction                String?   @map("call_to_action") @db.Text
+  references                  String?   @db.Text
   dateDebutProjet             DateTime? @map("date_debut_projet") @db.Date
   logoEntreprise              String?   @map("logo_entreprise") @db.VarChar(255)
   logoClient                  String?   @map("logo_client") @db.VarChar(255)

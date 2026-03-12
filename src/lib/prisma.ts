@@ -1,5 +1,5 @@
 import { PrismaClient } from "@/generated/prisma/client";
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -7,17 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
   const url = process.env.DATABASE_URL!;
-
-  // Parse MySQL URL: mysql://user:password@host:port/database
-  const parsed = new URL(url);
-  const adapter = new PrismaMariaDb({
-    host: parsed.hostname,
-    port: parseInt(parsed.port || "3306"),
-    user: parsed.username,
-    password: parsed.password,
-    database: parsed.pathname.slice(1), // remove leading /
-  });
-
+  const adapter = new PrismaPg({ connectionString: url });
   return new PrismaClient({ adapter });
 }
 

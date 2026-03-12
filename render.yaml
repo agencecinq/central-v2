@@ -1,0 +1,38 @@
+databases:
+  - name: cinq-central-db
+    region: frankfurt
+    plan: starter
+    databaseName: cinq_central
+    user: cinq
+
+services:
+  - type: web
+    name: cinq-central
+    runtime: node
+    region: frankfurt
+    plan: starter
+    branch: main
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm start -- -p $PORT
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cinq-central-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: QONTO_LOGIN
+        sync: false
+      - key: QONTO_SECRET_KEY
+        sync: false
