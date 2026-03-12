@@ -149,3 +149,28 @@ export async function deleteInvoicePlanification(numero: string) {
   await prisma.invoicePlanification.deleteMany({ where: { numero } });
   revalidatePath(PATH);
 }
+
+// ─── Invoice Hold (mettre en attente / réactiver une facture) ────────────────
+
+export async function toggleInvoiceHold(numero: string) {
+  await requireAdmin();
+  if (!numero) throw new Error("Le numéro de facture est requis");
+
+  const existing = await prisma.invoicePlanification.findUnique({
+    where: { numero },
+  });
+
+  if (existing) {
+    await prisma.invoicePlanification.update({
+      where: { numero },
+      data: { enAttente: !existing.enAttente },
+    });
+  } else {
+    // Create a planification entry just to hold the invoice
+    await prisma.invoicePlanification.create({
+      data: { numero, mois: "", enAttente: true },
+    });
+  }
+
+  revalidatePath(PATH);
+}

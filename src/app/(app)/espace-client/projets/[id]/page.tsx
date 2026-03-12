@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ClientGantt } from "./client-gantt";
 
 const statutLabels: Record<string, string> = {
   en_attente: "En attente",
@@ -72,6 +73,10 @@ export default async function ClientProjectDetailPage({
         orderBy: [{ statutKanban: "asc" }, { priorityLevel: "desc" }],
       },
       deal: { include: { dealFactures: { orderBy: { dateFacture: "desc" } } } },
+      allocations: {
+        include: { metier: { select: { nom: true } } },
+        orderBy: { dateDebut: "asc" },
+      },
     },
   });
 
@@ -90,6 +95,34 @@ export default async function ClientProjectDetailPage({
     : 0;
   const resteAFacturer =
     montantSigne !== null ? Math.max(0, montantSigne - totalFacture) : null;
+
+  // Gantt data
+  const phases = project.allocations.map((a) => ({
+    id: a.id,
+    metierId: a.metierId,
+    metierNom: a.metier.nom,
+    joursPrevus: Number(a.joursPrevus),
+    dateDebut: a.dateDebut?.toISOString() ?? null,
+    dateFin: a.dateFin?.toISOString() ?? null,
+  }));
+
+  const ganttTasks = project.tasks.map((t) => ({
+    id: t.id,
+    titre: t.titre,
+    description: t.description,
+    statutKanban: t.statutKanban,
+    categorie: t.categorie,
+    priorityLevel: t.priorityLevel,
+    estimationHeures: t.estimationHeures ? Number(t.estimationHeures) : null,
+    dateEcheance: t.dateEcheance?.toISOString() ?? null,
+    dateDebut: t.dateDebut?.toISOString() ?? null,
+    allocationId: t.allocationId,
+    assignee: t.user?.name ?? null,
+    userId: t.userId,
+    isOutOfScope: t.isOutOfScope,
+  }));
+
+  const hasGanttData = phases.length > 0 || ganttTasks.some((t) => t.dateDebut || t.dateEcheance);
 
   return (
     <div className="space-y-6">
@@ -163,6 +196,14 @@ export default async function ClientProjectDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Planning (Gantt) */}
+      {hasGanttData && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Planning</h3>
+          <ClientGantt phases={phases} tasks={ganttTasks} />
+        </div>
+      )}
 
       {/* Factures liées */}
       {deal && deal.dealFactures.length > 0 && (

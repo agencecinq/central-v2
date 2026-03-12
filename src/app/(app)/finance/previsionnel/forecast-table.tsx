@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Info, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Info, Pause, Pencil, Play, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import {
   createForecastExpense,
   deleteForecastExpense,
@@ -28,6 +28,7 @@ import {
   upsertInvoicePlanification,
   deleteDealRevenu,
   upsertSingletonExpense,
+  toggleInvoiceHold,
 } from "./actions";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -79,7 +80,6 @@ interface MonthData {
   factuPlanifiee: number;
   entrees: number;
   depensesProjets: number;
-  taxe: number;
   remuneration: number;
   emprunt: number;
   abonnements: number;
@@ -145,6 +145,7 @@ export function ForecastTable({
   dealsWithReste,
   totalResteAFacturer,
   invoicePlanifications,
+  invoiceHolds,
 }: {
   balance: number | null;
   pendingInvoices: PendingInvoice[];
@@ -154,6 +155,7 @@ export function ForecastTable({
   dealsWithReste: DealWithReste[];
   totalResteAFacturer: number;
   invoicePlanifications: Record<string, string>; // numero → mois planifié
+  invoiceHolds: string[]; // numeros of held invoices
 }) {
   const monthKeys = useMemo(() => generateMonthKeys(), []);
 
@@ -171,10 +173,14 @@ export function ForecastTable({
     (e) => e.categorie === "prestataires",
   );
 
+  const holdSet = useMemo(() => new Set(invoiceHolds), [invoiceHolds]);
+
   const months = useMemo(() => {
     // Group pending invoices by month (use planification override if available)
+    // Skip invoices that are on hold
     const facturesByMonth: Record<string, number> = {};
     for (const inv of pendingInvoices) {
+      if (holdSet.has(inv.numero)) continue; // skip held invoices
       const planned = invoicePlanifications[inv.numero];
       const key = planned
         ? clampKey(planned, monthKeys)
@@ -227,16 +233,13 @@ export function ForecastTable({
       const entrees = facturesAEncaisser + factuPlanifiee;
 
       const depensesProjets = depProjByMonth[key] ?? 0;
-      // Taxe = 20% des entrées du mois précédent
-      const taxe =
-        i > 0 ? Math.round(result[i - 1].entrees * 0.2) : 0;
       const remuneration = remuMensuel;
       const emprunt = key <= empruntFin ? empruntMensuel : 0;
       const abonnements = aboMensuel;
       const prestataires = prestaByMonth[key] ?? 0;
 
       const depensesPlanifiees =
-        taxe + remuneration + emprunt + abonnements + prestataires;
+        remuneration + emprunt + abonnements + prestataires;
       const sorties = depensesProjets + depensesPlanifiees;
 
       const soldeDebut = running;
@@ -249,7 +252,6 @@ export function ForecastTable({
         factuPlanifiee,
         entrees,
         depensesProjets,
-        taxe,
         remuneration,
         emprunt,
         abonnements,
@@ -271,6 +273,7 @@ export function ForecastTable({
     dealRevenus,
     monthKeys,
     invoicePlanifications,
+    holdSet,
     remunerationRecord,
     empruntRecord,
     abonnementsList,
@@ -282,7 +285,6 @@ export function ForecastTable({
   const totalFactuPlan = months.reduce((s, m) => s + m.factuPlanifiee, 0);
   const totalSorties = months.reduce((s, m) => s + m.sorties, 0);
   const totalDepProj = months.reduce((s, m) => s + m.depensesProjets, 0);
-  const totalTaxe = months.reduce((s, m) => s + m.taxe, 0);
   const totalRemu = months.reduce((s, m) => s + m.remuneration, 0);
   const totalEmprunt = months.reduce((s, m) => s + m.emprunt, 0);
   const totalAbo = months.reduce((s, m) => s + m.abonnements, 0);
@@ -389,13 +391,6 @@ export function ForecastTable({
                   className="text-muted-foreground"
                 />
                 <SubRow
-                  label="Taxes (20% M-1)"
-                  months={months}
-                  getValue={(m) => m.taxe}
-                  total={totalTaxe}
-                  className="text-orange-600"
-                />
-                <SubRow
                   label="Rémunération"
                   months={months}
                   getValue={(m) => m.remuneration}
@@ -467,6 +462,7 @@ export function ForecastTable({
         <InvoicePlanificationSection
           pendingInvoices={pendingInvoices}
           invoicePlanifications={invoicePlanifications}
+          invoiceHolds={holdSet}
           monthKeys={monthKeys}
         />
       )}
@@ -565,10 +561,12 @@ function SubRow({
 function InvoicePlanificationSection({
   pendingInvoices,
   invoicePlanifications,
+  invoiceHolds,
   monthKeys,
 }: {
   pendingInvoices: PendingInvoice[];
   invoicePlanifications: Record<string, string>;
+  invoiceHolds: Set<string>;
   monthKeys: string[];
 }) {
   const [isPending, startTransition] = useTransition();
@@ -587,6 +585,12 @@ function InvoicePlanificationSection({
   function handleReset(numero: string) {
     startTransition(async () => {
       await deleteInvoicePlanification(numero);
+    });
+  }
+
+  function handleToggleHold(numero: string) {
+    startTransition(async () => {
+      await toggleInvoiceHold(numero);
     });
   }
 
@@ -618,9 +622,10 @@ function InvoicePlanificationSection({
                 const planned = invoicePlanifications[inv.numero];
                 const currentMois = planned ?? defaultMois;
                 const isOverridden = !!planned && planned !== defaultMois;
+                const isHeld = invoiceHolds.has(inv.numero);
 
                 return (
-                  <tr key={inv.numero} className="hover:bg-muted/50">
+                  <tr key={inv.numero} className={`hover:bg-muted/50 ${isHeld ? "opacity-50" : ""}`}>
                     <td className="px-4 py-2.5">{inv.clientNom}</td>
                     <td className="px-4 py-2.5 text-muted-foreground text-xs">
                       {inv.numero}
@@ -657,16 +662,26 @@ function InvoicePlanificationSection({
                       </Select>
                     </td>
                     <td className="px-4 py-2.5">
-                      {isOverridden && (
+                      <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => handleReset(inv.numero)}
+                          onClick={() => handleToggleHold(inv.numero)}
                           disabled={isPending}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                          title="Revenir à l'échéance"
+                          className={`transition-colors ${isHeld ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-foreground"}`}
+                          title={isHeld ? "Réintégrer au prévisionnel" : "Mettre en attente"}
                         >
-                          <RotateCcw className="h-3.5 w-3.5" />
+                          {isHeld ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
                         </button>
-                      )}
+                        {isOverridden && (
+                          <button
+                            onClick={() => handleReset(inv.numero)}
+                            disabled={isPending}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title="Revenir à l'échéance"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

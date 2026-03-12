@@ -3,6 +3,7 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 // ─── Widget Token ────────────────────────────────────────
 
@@ -19,6 +20,24 @@ export async function generateWidgetToken(projectId: number): Promise<string> {
 }
 
 // ─── Project ─────────────────────────────────────────────
+
+export async function deleteProject(projectId: number) {
+  // Delete all related data in dependency order, then the project itself
+  await prisma.$transaction([
+    prisma.timeEntry.deleteMany({ where: { projectId } }),
+    prisma.ticketAttachment.deleteMany({
+      where: { ticket: { projectId } },
+    }),
+    prisma.ticket.deleteMany({ where: { projectId } }),
+    prisma.task.deleteMany({ where: { projectId } }),
+    prisma.transaction.deleteMany({ where: { projectId } }),
+    prisma.projectAllocation.deleteMany({ where: { projectId } }),
+    prisma.project.delete({ where: { id: projectId } }),
+  ]);
+
+  revalidatePath("/projets");
+  redirect("/projets");
+}
 
 export async function updateProject(projectId: number, formData: FormData) {
   const titre = formData.get("titre") as string;

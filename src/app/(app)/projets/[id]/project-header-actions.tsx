@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { ProjectDialog } from "./project-dialog";
+import { DeleteDialog } from "./delete-dialog";
+import { deleteProject } from "./actions";
 
 interface ProjectData {
   id: number;
@@ -48,13 +50,25 @@ export function ProjectHeaderActions({
   deals: DealOption[];
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
-        <Pencil className="mr-1.5 h-4 w-4" />
-        Modifier
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
+          <Pencil className="mr-1.5 h-4 w-4" />
+          Modifier
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+          onClick={() => setDeleteOpen(true)}
+        >
+          <Trash2 className="mr-1.5 h-4 w-4" />
+          Supprimer
+        </Button>
+      </div>
       <ProjectDialog
         project={project}
         clients={clients}
@@ -62,6 +76,13 @@ export function ProjectHeaderActions({
         deals={deals}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+      />
+      <DeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Supprimer le projet"
+        description={`Êtes-vous sûr de vouloir supprimer "${project.titre}" ? Toutes les tâches, tickets, transactions et entrées de temps associées seront définitivement supprimées.`}
+        onConfirm={() => deleteProject(project.id)}
       />
     </>
   );

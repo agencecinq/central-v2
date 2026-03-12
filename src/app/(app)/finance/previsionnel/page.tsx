@@ -69,11 +69,18 @@ async function getForecastData() {
     montant: Number(fe.montant),
   }));
 
-  // Invoice planifications (override encaissement month)
+  // Invoice planifications (override encaissement month) + holds
   const invoicePlanificationsRaw =
     await prisma.invoicePlanification.findMany();
   const invoicePlanifications = Object.fromEntries(
-    invoicePlanificationsRaw.map((ip) => [ip.numero, ip.mois]),
+    invoicePlanificationsRaw
+      .filter((ip) => ip.mois) // only those with a planned month
+      .map((ip) => [ip.numero, ip.mois]),
+  );
+  const invoiceHolds = new Set(
+    invoicePlanificationsRaw
+      .filter((ip) => ip.enAttente)
+      .map((ip) => ip.numero),
   );
 
   // Signed deals with reste à facturer + planned revenues
@@ -154,6 +161,7 @@ async function getForecastData() {
     dealsWithReste,
     totalResteAFacturer,
     invoicePlanifications,
+    invoiceHolds: Array.from(invoiceHolds),
     qontoError,
   };
 }
@@ -173,6 +181,7 @@ export default async function PrevisionnelPage() {
     dealsWithReste,
     totalResteAFacturer,
     invoicePlanifications,
+    invoiceHolds,
     qontoError,
   } = await getForecastData();
 
@@ -268,6 +277,7 @@ export default async function PrevisionnelPage() {
         dealsWithReste={dealsWithReste}
         totalResteAFacturer={totalResteAFacturer}
         invoicePlanifications={invoicePlanifications}
+        invoiceHolds={invoiceHolds}
       />
     </div>
   );

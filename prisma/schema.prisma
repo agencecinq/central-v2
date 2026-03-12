@@ -269,6 +269,7 @@ model InvoicePlanification {
   id        Int      @id @default(autoincrement())
   numero    String   @unique @db.VarChar(255)
   mois      String   @db.VarChar(10)
+  enAttente Boolean  @default(false) @map("en_attente")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("invoice_planification")
