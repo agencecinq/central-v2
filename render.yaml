@@ -1,7 +1,8 @@
 databases:
   - name: cinq-central-db
     region: frankfurt
-    plan: starter
+    plan: basic-256mb
+    diskSizeGB: 1
     databaseName: cinq_central
     user: cinq
 
