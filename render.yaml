@@ -13,7 +13,7 @@ services:
     region: frankfurt
     plan: starter
     branch: main
-    buildCommand: npm install && rm -rf src/generated/prisma && npx prisma generate && npx prisma db push --skip-generate && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public
+    buildCommand: npm install && rm -rf src/generated/prisma && npx prisma generate && npx prisma db push && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public
     startCommand: PORT=$PORT node .next/standalone/server.js
     healthCheckPath: /login
     envVars:
