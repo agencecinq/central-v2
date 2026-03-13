@@ -14,7 +14,10 @@ import {
   GripVertical,
   Link2,
   Check,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import {
   computeBudgetTotals,
   formatEuro,
@@ -200,7 +203,53 @@ type Action =
       tempId: string;
       field: string;
       value: string;
-    };
+    }
+  | { type: "LOAD_AI_DRAFT"; draft: AIDraft };
+
+// ─── AI Draft type ───────────────────────────────────────────────────────
+
+interface AIDraftSousSection {
+  titre: string;
+  description: string;
+  nombreJours: number;
+  tjm: number;
+  remise: number;
+}
+
+interface AIDraftSection {
+  titre: string;
+  description: string;
+  estOption: boolean;
+  sousSections: AIDraftSousSection[];
+}
+
+interface AIDraftPlanningEtape {
+  titre: string;
+  description: string;
+  nombreSemaines: number | null;
+}
+
+interface AIDraftBenefice {
+  titre: string;
+  description: string;
+  icone: string;
+}
+
+interface AIDraftInfo {
+  titre: string;
+  description: string;
+  icone: string;
+}
+
+interface AIDraft {
+  introduction: string;
+  conclusion: string;
+  sections: AIDraftSection[];
+  planningEtapes: AIDraftPlanningEtape[];
+  beneficesCles: AIDraftBenefice[];
+  informationsComplementaires: AIDraftInfo[];
+  dateDebutProjet: string | null;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -482,6 +531,46 @@ function reducer(state: BudgetState, action: Action): BudgetState {
         ),
       };
 
+    case "LOAD_AI_DRAFT":
+      return {
+        ...state,
+        introduction: action.draft.introduction,
+        conclusion: action.draft.conclusion,
+        dateDebutProjet: action.draft.dateDebutProjet ?? "",
+        sections: action.draft.sections.map((s) => ({
+          tempId: uid(),
+          titre: s.titre,
+          description: s.description,
+          estOption: s.estOption,
+          sousSections: s.sousSections.map((ss) => ({
+            tempId: uid(),
+            titre: ss.titre,
+            description: ss.description,
+            nombreJours: ss.nombreJours,
+            tjm: ss.tjm,
+            remise: ss.remise,
+          })),
+        })),
+        planningEtapes: action.draft.planningEtapes.map((e) => ({
+          tempId: uid(),
+          titre: e.titre,
+          description: e.description,
+          nombreSemaines: e.nombreSemaines,
+        })),
+        beneficesCles: action.draft.beneficesCles.map((b) => ({
+          tempId: uid(),
+          titre: b.titre,
+          description: b.description,
+          icone: b.icone,
+        })),
+        informationsComplementaires: action.draft.informationsComplementaires.map((i) => ({
+          tempId: uid(),
+          titre: i.titre,
+          description: i.description,
+          icone: i.icone,
+        })),
+      };
+
     default:
       return state;
   }
@@ -628,6 +717,33 @@ export function BudgetEditor({
   const [linkCopied, setLinkCopied] = useState(false);
 
   const isNew = !budget;
+  const [brief, setBrief] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  async function handleGenerateAI() {
+    if (brief.trim().length < 20) return;
+    setIsGenerating(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/generate-budget", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief: brief.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Erreur inconnue" }));
+        setAiError(err.error || "Erreur lors de la génération");
+        return;
+      }
+      const draft = await res.json();
+      dispatch({ type: "LOAD_AI_DRAFT", draft });
+    } catch {
+      setAiError("Erreur réseau. Réessayez.");
+    } finally {
+      setIsGenerating(false);
+    }
+  }
 
   // Compute totals live
   const budgetData: BudgetData = useMemo(
@@ -765,6 +881,50 @@ export function BudgetEditor({
             {dealTitre} · {clientName}
           </p>
         </div>
+
+        {/* AI Brief Panel — only for new budgets */}
+        {isNew && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Générer avec l&apos;IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Décrivez le projet en quelques lignes et l&apos;IA pré-remplira la proposition.
+              </p>
+              <Textarea
+                value={brief}
+                onChange={(e) => setBrief(e.target.value)}
+                placeholder="Ex : Refonte d'un site e-commerce Shopify pour une marque de cosmétiques bio. Budget estimé 15-20k€, lancement prévu septembre 2026. Besoin : nouveau design, migration des produits, intégration CRM..."
+                rows={4}
+                disabled={isGenerating}
+              />
+              {aiError && (
+                <p className="text-sm text-destructive">{aiError}</p>
+              )}
+              <Button
+                onClick={handleGenerateAI}
+                disabled={isGenerating || brief.trim().length < 20}
+                variant="outline"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Génération en cours…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Générer le brouillon
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* General settings */}
         <Card>
