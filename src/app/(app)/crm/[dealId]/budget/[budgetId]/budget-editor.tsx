@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { MiniEditor } from "@/components/mini-editor";
 import {
   computeBudgetTotals,
   formatEuro,
@@ -1905,140 +1906,171 @@ function SectionCard({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-3">
+        {/* Section description */}
+        <MiniEditor
+          content={section.description}
+          onChange={(html) =>
+            dispatch({
+              type: "UPDATE_SECTION",
+              tempId: section.tempId,
+              field: "description",
+              value: html,
+            })
+          }
+          placeholder="Description de la section…"
+        />
+
         {/* Sous-sections */}
         {section.sousSections.map((ss, ssi) => (
           <div
             key={ss.tempId}
-            className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2"
+            className="rounded-lg border bg-muted/20 px-3 py-2 space-y-2"
           >
-            <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+            <div className="flex items-center gap-2">
+              <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
 
-            <Input
-              value={ss.titre}
-              onChange={(e) =>
-                dispatch({
-                  type: "UPDATE_SOUS_SECTION",
-                  sectionTempId: section.tempId,
-                  ssTempId: ss.tempId,
-                  field: "titre",
-                  value: e.target.value,
-                })
-              }
-              placeholder="Sous-section"
-              className="flex-1 min-w-0"
-            />
-
-            <Input
-              type="number"
-              min="0"
-              step="0.5"
-              value={ss.nombreJours}
-              onChange={(e) =>
-                dispatch({
-                  type: "UPDATE_SOUS_SECTION",
-                  sectionTempId: section.tempId,
-                  ssTempId: ss.tempId,
-                  field: "nombreJours",
-                  value: parseFloat(e.target.value) || 0,
-                })
-              }
-              className="w-16 text-center"
-              title="Jours"
-            />
-            <span className="text-xs text-muted-foreground">j ×</span>
-
-            <Input
-              type="number"
-              min="0"
-              step="1"
-              value={ss.tjm}
-              onChange={(e) =>
-                dispatch({
-                  type: "UPDATE_SOUS_SECTION",
-                  sectionTempId: section.tempId,
-                  ssTempId: ss.tempId,
-                  field: "tjm",
-                  value: parseFloat(e.target.value) || 0,
-                })
-              }
-              className="w-20 text-center"
-              title="TJM"
-            />
-            <span className="text-xs text-muted-foreground">€</span>
-
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              value={ss.remise}
-              onChange={(e) =>
-                dispatch({
-                  type: "UPDATE_SOUS_SECTION",
-                  sectionTempId: section.tempId,
-                  ssTempId: ss.tempId,
-                  field: "remise",
-                  value: parseFloat(e.target.value) || 0,
-                })
-              }
-              className="w-16 text-center"
-              title="Remise %"
-            />
-            <span className="text-xs text-muted-foreground">%</span>
-
-            <span className="text-xs font-medium whitespace-nowrap w-20 text-right">
-              {formatEuro(ss.nombreJours * ss.tjm * (1 - ss.remise / 100))}
-            </span>
-
-            <div className="flex gap-0.5">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                disabled={ssi === 0}
-                onClick={() =>
+              <Input
+                value={ss.titre}
+                onChange={(e) =>
                   dispatch({
-                    type: "MOVE_SOUS_SECTION",
+                    type: "UPDATE_SOUS_SECTION",
                     sectionTempId: section.tempId,
                     ssTempId: ss.tempId,
-                    direction: "up",
+                    field: "titre",
+                    value: e.target.value,
                   })
                 }
-              >
-                <ChevronUp className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                disabled={ssi === section.sousSections.length - 1}
-                onClick={() =>
+                placeholder="Sous-section"
+                className="flex-1 min-w-0"
+              />
+
+              <Input
+                type="number"
+                min="0"
+                step="0.5"
+                value={ss.nombreJours}
+                onChange={(e) =>
                   dispatch({
-                    type: "MOVE_SOUS_SECTION",
+                    type: "UPDATE_SOUS_SECTION",
                     sectionTempId: section.tempId,
                     ssTempId: ss.tempId,
-                    direction: "down",
+                    field: "nombreJours",
+                    value: parseFloat(e.target.value) || 0,
                   })
                 }
-              >
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-destructive hover:text-destructive"
-                onClick={() =>
+                className="w-16 text-center"
+                title="Jours"
+              />
+              <span className="text-xs text-muted-foreground">j ×</span>
+
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={ss.tjm}
+                onChange={(e) =>
                   dispatch({
-                    type: "REMOVE_SOUS_SECTION",
+                    type: "UPDATE_SOUS_SECTION",
                     sectionTempId: section.tempId,
                     ssTempId: ss.tempId,
+                    field: "tjm",
+                    value: parseFloat(e.target.value) || 0,
                   })
                 }
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
+                className="w-20 text-center"
+                title="TJM"
+              />
+              <span className="text-xs text-muted-foreground">€</span>
+
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={ss.remise}
+                onChange={(e) =>
+                  dispatch({
+                    type: "UPDATE_SOUS_SECTION",
+                    sectionTempId: section.tempId,
+                    ssTempId: ss.tempId,
+                    field: "remise",
+                    value: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="w-16 text-center"
+                title="Remise %"
+              />
+              <span className="text-xs text-muted-foreground">%</span>
+
+              <span className="text-xs font-medium whitespace-nowrap w-20 text-right">
+                {formatEuro(ss.nombreJours * ss.tjm * (1 - ss.remise / 100))}
+              </span>
+
+              <div className="flex gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={ssi === 0}
+                  onClick={() =>
+                    dispatch({
+                      type: "MOVE_SOUS_SECTION",
+                      sectionTempId: section.tempId,
+                      ssTempId: ss.tempId,
+                      direction: "up",
+                    })
+                  }
+                >
+                  <ChevronUp className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={ssi === section.sousSections.length - 1}
+                  onClick={() =>
+                    dispatch({
+                      type: "MOVE_SOUS_SECTION",
+                      sectionTempId: section.tempId,
+                      ssTempId: ss.tempId,
+                      direction: "down",
+                    })
+                  }
+                >
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-destructive hover:text-destructive"
+                  onClick={() =>
+                    dispatch({
+                      type: "REMOVE_SOUS_SECTION",
+                      sectionTempId: section.tempId,
+                      ssTempId: ss.tempId,
+                    })
+                  }
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
+
+            {/* Sous-section description */}
+            <MiniEditor
+              content={ss.description}
+              onChange={(html) =>
+                dispatch({
+                  type: "UPDATE_SOUS_SECTION",
+                  sectionTempId: section.tempId,
+                  ssTempId: ss.tempId,
+                  field: "description",
+                  value: html,
+                })
+              }
+              placeholder="Description de la sous-section…"
+            />
           </div>
         ))}
 

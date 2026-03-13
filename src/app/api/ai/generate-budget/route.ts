@@ -191,13 +191,31 @@ export async function POST(request: Request) {
     const result = await response.json();
     let content = result.content?.[0]?.text ?? "";
 
-    // Clean potential markdown wrappers
+    // Clean potential markdown wrappers and stray text
     content = content.trim();
-    content = content.replace(/^```(?:json)?\s*/, "");
+    // Remove ```json ... ``` blocks
+    content = content.replace(/^```(?:json)?\s*/i, "");
     content = content.replace(/\s*```\s*$/, "");
     content = content.trim();
 
-    const data = JSON.parse(content) as AIBudgetDraft;
+    // If the AI added text before or after the JSON, extract the outermost { ... }
+    const firstBrace = content.indexOf("{");
+    const lastBrace = content.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      content = content.slice(firstBrace, lastBrace + 1);
+    }
+
+    let data: AIBudgetDraft;
+    try {
+      data = JSON.parse(content) as AIBudgetDraft;
+    } catch {
+      console.error("JSON invalide reçu de l'IA:", content.slice(0, 500));
+      return NextResponse.json(
+        { error: "L'IA a renvoyé une réponse invalide. Réessayez." },
+        { status: 502 },
+      );
+    }
+
     const normalized = normalizeDraft(data);
 
     return NextResponse.json(normalized);
