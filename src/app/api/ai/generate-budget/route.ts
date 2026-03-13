@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = "claude-sonnet-4-5-20250514";
+const MODEL = "claude-sonnet-4-5-20250929";
 
 const SYSTEM_PROMPT = `Tu es un assistant qui génère des brouillons de propositions commerciales (budgets) pour une agence digitale.
 À partir du brief client, tu dois produire UNIQUEMENT un JSON valide respectant exactement la structure ci-dessous.
