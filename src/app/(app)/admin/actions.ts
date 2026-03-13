@@ -25,7 +25,25 @@ export async function updateUserRole(userId: number, newRole: string) {
 
   await prisma.user.update({
     where: { id: userId },
-    data: { role: newRole },
+    data: {
+      role: newRole,
+      // Auto-clear clientId when switching away from client role
+      ...(newRole !== ROLES.CLIENT ? { clientId: null } : {}),
+    },
+  });
+
+  revalidatePath(PATH);
+}
+
+export async function updateUserClient(userId: number, clientId: number | null) {
+  const session = await auth();
+  if (!session || !isAdmin(session.user.role)) {
+    throw new Error("Accès refusé");
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { clientId },
   });
 
   revalidatePath(PATH);

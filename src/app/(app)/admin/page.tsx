@@ -13,6 +13,8 @@ async function getUsers() {
       email: true,
       role: true,
       tjm: true,
+      clientId: true,
+      client: { select: { id: true, nom: true } },
       userMetiers: { select: { metierId: true } },
       createdAt: true,
     },
@@ -25,9 +27,19 @@ async function getUsers() {
     email: u.email,
     role: u.role,
     tjm: u.tjm ? Number(u.tjm) : null,
+    clientId: u.clientId,
+    clientNom: u.client?.nom ?? null,
     metierIds: u.userMetiers.map((um) => um.metierId),
     createdAt: u.createdAt?.toISOString() ?? null,
   }));
+}
+
+async function getClients() {
+  const clients = await prisma.client.findMany({
+    select: { id: true, nom: true, entreprise: true },
+    orderBy: { nom: "asc" },
+  });
+  return clients.map((c) => ({ id: c.id, nom: c.nom, entreprise: c.entreprise }));
 }
 
 async function getMetiers() {
@@ -45,7 +57,7 @@ export default async function AdminPage() {
     redirect("/dashboard");
   }
 
-  const [users, metiers] = await Promise.all([getUsers(), getMetiers()]);
+  const [users, metiers, clients] = await Promise.all([getUsers(), getMetiers(), getClients()]);
 
   return (
     <div className="space-y-6">
@@ -58,7 +70,7 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <AdminUsersTable users={users} metiers={metiers} currentUserId={Number(session.user.id)} />
+      <AdminUsersTable users={users} metiers={metiers} clients={clients} currentUserId={Number(session.user.id)} />
       <AdminMetiersTable metiers={metiers} />
     </div>
   );

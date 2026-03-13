@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Plus, Check } from "lucide-react";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/roles";
-import { updateUserRole, updateUserTjm, toggleUserMetier } from "./actions";
+import { updateUserRole, updateUserTjm, toggleUserMetier, updateUserClient } from "./actions";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -27,12 +27,20 @@ interface MetierOption {
   nom: string;
 }
 
+interface ClientOption {
+  id: number;
+  nom: string;
+  entreprise: string | null;
+}
+
 interface UserItem {
   id: number;
   name: string;
   email: string;
   role: string;
   tjm: number | null;
+  clientId: number | null;
+  clientNom: string | null;
   metierIds: number[];
   createdAt: string | null;
 }
@@ -40,12 +48,13 @@ interface UserItem {
 interface Props {
   users: UserItem[];
   metiers: MetierOption[];
+  clients: ClientOption[];
   currentUserId: number;
 }
 
 // ─── Main table ─────────────────────────────────────────────────────────────
 
-export function AdminUsersTable({ users, metiers, currentUserId }: Props) {
+export function AdminUsersTable({ users, metiers, clients, currentUserId }: Props) {
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -61,6 +70,7 @@ export function AdminUsersTable({ users, metiers, currentUserId }: Props) {
                 <th className="pb-2 pr-4 font-medium">Nom</th>
                 <th className="pb-2 pr-4 font-medium">Email</th>
                 <th className="pb-2 pr-4 font-medium">Rôle</th>
+                <th className="pb-2 pr-4 font-medium">Client</th>
                 <th className="pb-2 pr-4 font-medium">Métiers</th>
                 <th className="pb-2 pr-4 font-medium">TJM (€)</th>
               </tr>
@@ -71,6 +81,7 @@ export function AdminUsersTable({ users, metiers, currentUserId }: Props) {
                   key={user.id}
                   user={user}
                   metiers={metiers}
+                  clients={clients}
                   isSelf={user.id === currentUserId}
                 />
               ))}
@@ -86,7 +97,7 @@ export function AdminUsersTable({ users, metiers, currentUserId }: Props) {
 
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS) as [Role, string][];
 
-function UserRow({ user, metiers, isSelf }: { user: UserItem; metiers: MetierOption[]; isSelf: boolean }) {
+function UserRow({ user, metiers, clients, isSelf }: { user: UserItem; metiers: MetierOption[]; clients: ClientOption[]; isSelf: boolean }) {
   const [isPending, startTransition] = useTransition();
 
   function handleRoleChange(newRole: string | null) {
@@ -109,6 +120,14 @@ function UserRow({ user, metiers, isSelf }: { user: UserItem; metiers: MetierOpt
     if (tjm === user.tjm) return;
     startTransition(async () => {
       await updateUserTjm(user.id, tjm);
+    });
+  }
+
+  function handleClientChange(val: string | null) {
+    const clientId = val ? parseInt(val) : null;
+    if (clientId === user.clientId) return;
+    startTransition(async () => {
+      await updateUserClient(user.id, clientId);
     });
   }
 
@@ -147,6 +166,27 @@ function UserRow({ user, metiers, isSelf }: { user: UserItem; metiers: MetierOpt
               ))}
             </SelectContent>
           </Select>
+        )}
+      </td>
+      <td className="py-2.5 pr-4">
+        {user.role === ROLES.CLIENT ? (
+          <Select
+            value={user.clientId ? String(user.clientId) : ""}
+            onValueChange={(v) => handleClientChange(v)}
+          >
+            <SelectTrigger size="sm" className="w-40">
+              {user.clientNom ?? "— Aucun —"}
+            </SelectTrigger>
+            <SelectContent>
+              {clients.map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.nom}{c.entreprise ? ` (${c.entreprise})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="text-muted-foreground">—</span>
         )}
       </td>
       <td className="py-2.5 pr-4">
