@@ -11,7 +11,10 @@ import {
   FileText,
   Image as ImageIcon,
   Download,
+  Send,
+  MessageSquare,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +36,8 @@ import {
   updateTicketAssigne,
   deleteTicket,
   deleteAttachment,
+  addComment,
+  deleteComment,
 } from "../actions";
 
 // ─── Types ────────────────────────────────────────────────
@@ -43,6 +48,15 @@ interface Attachment {
   filepath: string;
   mimetype: string | null;
   size: number | null;
+  createdAt: string | null;
+}
+
+interface Comment {
+  id: number;
+  contenu: string;
+  auteurId: number;
+  auteurName: string;
+  auteurRole: string;
   createdAt: string | null;
 }
 
@@ -63,6 +77,7 @@ interface TicketData {
   createdAt: string | null;
   updatedAt: string | null;
   attachments: Attachment[];
+  comments: Comment[];
 }
 
 interface UserOption {
@@ -114,15 +129,19 @@ function getFileIcon(mimetype: string | null) {
 export function TicketDetail({
   ticket,
   users,
+  currentUserId,
 }: {
   ticket: TicketData;
   users: UserOption[];
+  currentUserId: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [commentText, setCommentText] = useState("");
+  const [sendingComment, setSendingComment] = useState(false);
 
   function handleStatusChange(statut: string | null) {
     if (!statut) return;
@@ -172,6 +191,24 @@ export function TicketDetail({
         fileInputRef.current.value = "";
       }
     }
+  }
+
+  async function handleAddComment() {
+    if (!commentText.trim()) return;
+    setSendingComment(true);
+    try {
+      await addComment(ticket.id, commentText);
+      setCommentText("");
+      router.refresh();
+    } finally {
+      setSendingComment(false);
+    }
+  }
+
+  function handleDeleteComment(commentId: number) {
+    startTransition(async () => {
+      await deleteComment(commentId);
+    });
   }
 
   const assigneValue = ticket.assigneId ? String(ticket.assigneId) : "none";
@@ -332,6 +369,96 @@ export function TicketDetail({
                 })}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Comments */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Commentaires
+              {ticket.comments.length > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({ticket.comments.length})
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {ticket.comments.length === 0 && (
+              <p className="text-sm text-muted-foreground italic">
+                Aucun commentaire pour le moment.
+              </p>
+            )}
+
+            {ticket.comments.map((comment) => (
+              <div key={comment.id} className="flex gap-3 group">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                  {comment.auteurName
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">
+                      {comment.auteurName}
+                    </span>
+                    {comment.auteurRole === "client" && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        Client
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(comment.createdAt)}
+                    </span>
+                    {(comment.auteurId === currentUserId) && (
+                      <button
+                        onClick={() => handleDeleteComment(comment.id)}
+                        disabled={isPending}
+                        className="opacity-0 group-hover:opacity-100 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-destructive transition-all"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div
+                    className="mt-1 text-sm whitespace-pre-wrap break-words"
+                  >
+                    {comment.contenu}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* New comment form */}
+            <div className="flex gap-3 pt-2 border-t">
+              <div className="flex-1">
+                <Textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Ajouter un commentaire..."
+                  rows={2}
+                  disabled={sendingComment}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      handleAddComment();
+                    }
+                  }}
+                />
+              </div>
+              <Button
+                size="icon"
+                onClick={handleAddComment}
+                disabled={sendingComment || !commentText.trim()}
+                className="shrink-0 self-end"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

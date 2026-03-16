@@ -176,7 +176,7 @@ export async function POST(request: Request) {
         ],
         temperature: 0.4,
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(120000),
     });
 
     if (!response.ok) {
@@ -225,6 +225,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "L'IA a renvoyé une réponse invalide. Réessayez." },
         { status: 502 },
+      );
+    }
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      console.error("Timeout appel API Anthropic");
+      return NextResponse.json(
+        { error: "La génération a pris trop de temps. Réessayez avec un brief plus court." },
+        { status: 504 },
       );
     }
     console.error("Erreur génération budget IA", error);

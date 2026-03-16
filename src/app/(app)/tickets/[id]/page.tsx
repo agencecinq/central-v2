@@ -38,6 +38,10 @@ export default async function TicketDetailPage({
       createur: { select: { id: true, name: true } },
       assigne: { select: { id: true, name: true } },
       attachments: { orderBy: { createdAt: "desc" } },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: { auteur: { select: { id: true, name: true, role: true } } },
+      },
     },
   });
 
@@ -84,6 +88,14 @@ export default async function TicketDetailPage({
       size: a.size,
       createdAt: a.createdAt?.toISOString() ?? null,
     })),
+    comments: ticket.comments.map((c) => ({
+      id: c.id,
+      contenu: c.contenu,
+      auteurId: c.auteurId,
+      auteurName: c.auteur.name ?? "Utilisateur",
+      auteurRole: c.auteur.role ?? "equipe",
+      createdAt: c.createdAt?.toISOString() ?? null,
+    })),
   };
 
   return (
@@ -108,6 +120,7 @@ export default async function TicketDetailPage({
       <TicketDetail
         ticket={serializedTicket}
         users={users.map((u) => ({ id: u.id, name: u.name ?? "" }))}
+        currentUserId={userId}
       />
     </div>
   );

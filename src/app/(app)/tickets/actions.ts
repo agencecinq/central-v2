@@ -230,6 +230,54 @@ export async function bulkDeleteTickets(ticketIds: number[]) {
   revalidatePath("/tickets");
 }
 
+// ─── Comments ────────────────────────────────────────────
+
+export async function addComment(ticketId: number, contenu: string) {
+  const { userId, role } = await getSessionUser();
+
+  const ticket = await prisma.ticket.findUniqueOrThrow({
+    where: { id: ticketId },
+    select: { projectId: true },
+  });
+
+  if (role === "client") {
+    await assertClientAccess(userId, ticket.projectId);
+  }
+
+  if (!contenu?.trim()) throw new Error("Le commentaire est vide");
+
+  await prisma.ticketComment.create({
+    data: {
+      ticketId,
+      auteurId: userId,
+      contenu: contenu.trim(),
+    },
+  });
+
+  revalidatePath(`/tickets/${ticketId}`);
+}
+
+export async function deleteComment(commentId: number) {
+  const { userId, role } = await getSessionUser();
+
+  const comment = await prisma.ticketComment.findUniqueOrThrow({
+    where: { id: commentId },
+    include: { ticket: { select: { id: true, projectId: true } } },
+  });
+
+  // Only the author or admin/equipe can delete
+  if (role === "client" && comment.auteurId !== userId) {
+    throw new Error("Accès refusé");
+  }
+  if (role === "client") {
+    await assertClientAccess(userId, comment.ticket.projectId);
+  }
+
+  await prisma.ticketComment.delete({ where: { id: commentId } });
+
+  revalidatePath(`/tickets/${comment.ticket.id}`);
+}
+
 export async function deleteAttachment(attachmentId: number) {
   const { userId, role } = await getSessionUser();
 

@@ -36,6 +36,7 @@ model User {
   userMetiers       UserMetier[]
   ticketsCreated    Ticket[]  @relation("TicketCreateur")
   ticketsAssigned   Ticket[]  @relation("TicketAssigne")
+  ticketComments    TicketComment[] @relation("TicketCommentAuteur")
   dashboardLayout   DashboardLayout?
 
   @@map("users")
@@ -333,6 +334,7 @@ model Ticket {
   createur    User?     @relation("TicketCreateur", fields: [createurId], references: [id])
   assigne     User?     @relation("TicketAssigne", fields: [assigneId], references: [id])
   attachments TicketAttachment[]
+  comments    TicketComment[]
 
   @@map("tickets")
 }
@@ -349,6 +351,19 @@ model TicketAttachment {
   ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@map("ticket_attachments")
+}
+
+model TicketComment {
+  id        Int       @id @default(autoincrement())
+  ticketId  Int       @map("ticket_id")
+  auteurId  Int       @map("auteur_id")
+  contenu   String    @db.Text
+  createdAt DateTime? @map("created_at")
+
+  ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  auteur    User      @relation("TicketCommentAuteur", fields: [auteurId], references: [id])
+
+  @@map("ticket_comments")
 }
 
 model Metier {
