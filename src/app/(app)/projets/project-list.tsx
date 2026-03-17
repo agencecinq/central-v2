@@ -255,14 +255,18 @@ export function ProjectList({
   allClients: ClientOption[];
   users: UserOption[];
 }) {
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("actifs");
   const [clientFilter, setClientFilter] = useState("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [createOpen, setCreateOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
-      if (statusFilter !== "all" && p.statut !== statusFilter) return false;
+      if (statusFilter === "actifs") {
+        if (p.statut !== "en_cours" && p.statut !== "en_attente") return false;
+      } else if (statusFilter !== "all" && p.statut !== statusFilter) {
+        return false;
+      }
       if (clientFilter !== "all" && String(p.clientId) !== clientFilter)
         return false;
       return true;
@@ -274,9 +278,10 @@ export function ProjectList({
       <div className="flex flex-wrap items-center gap-3">
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
           <SelectTrigger className="w-44">
-            {statusFilter === "all" ? "Tous les statuts" : (statutLabels[statusFilter] ?? statusFilter)}
+            {statusFilter === "actifs" ? "En cours / En attente" : statusFilter === "all" ? "Tous les statuts" : (statutLabels[statusFilter] ?? statusFilter)}
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="actifs">En cours / En attente</SelectItem>
             <SelectItem value="all">Tous les statuts</SelectItem>
             <SelectItem value="en_attente">En attente</SelectItem>
             <SelectItem value="en_cours">En cours</SelectItem>
@@ -298,10 +303,10 @@ export function ProjectList({
           </SelectContent>
         </Select>
 
-        {(statusFilter !== "all" || clientFilter !== "all") && (
+        {(statusFilter !== "actifs" || clientFilter !== "all") && (
           <button
             onClick={() => {
-              setStatusFilter("all");
+              setStatusFilter("actifs");
               setClientFilter("all");
             }}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"

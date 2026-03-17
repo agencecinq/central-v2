@@ -13,9 +13,8 @@ async function getUsers() {
       email: true,
       role: true,
       tjm: true,
-      clientId: true,
-      client: { select: { id: true, nom: true } },
       userMetiers: { select: { metierId: true } },
+      userProjects: { select: { projectId: true } },
       createdAt: true,
     },
     orderBy: { name: "asc" },
@@ -27,19 +26,22 @@ async function getUsers() {
     email: u.email,
     role: u.role,
     tjm: u.tjm ? Number(u.tjm) : null,
-    clientId: u.clientId,
-    clientNom: u.client?.nom ?? null,
     metierIds: u.userMetiers.map((um) => um.metierId),
+    projectIds: u.userProjects.map((up) => up.projectId),
     createdAt: u.createdAt?.toISOString() ?? null,
   }));
 }
 
-async function getClients() {
-  const clients = await prisma.client.findMany({
-    select: { id: true, nom: true, entreprise: true },
-    orderBy: { nom: "asc" },
+async function getProjects() {
+  const projects = await prisma.project.findMany({
+    select: { id: true, titre: true, client: { select: { nom: true } } },
+    orderBy: { titre: "asc" },
   });
-  return clients.map((c) => ({ id: c.id, nom: c.nom, entreprise: c.entreprise }));
+  return projects.map((p) => ({
+    id: p.id,
+    titre: p.titre,
+    clientNom: p.client?.nom ?? null,
+  }));
 }
 
 async function getMetiers() {
@@ -57,7 +59,7 @@ export default async function AdminPage() {
     redirect("/dashboard");
   }
 
-  const [users, metiers, clients] = await Promise.all([getUsers(), getMetiers(), getClients()]);
+  const [users, metiers, projects] = await Promise.all([getUsers(), getMetiers(), getProjects()]);
 
   return (
     <div className="space-y-6">
@@ -70,7 +72,7 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <AdminUsersTable users={users} metiers={metiers} clients={clients} currentUserId={Number(session.user.id)} />
+      <AdminUsersTable users={users} metiers={metiers} projects={projects} currentUserId={Number(session.user.id)} />
       <AdminMetiersTable metiers={metiers} />
     </div>
   );

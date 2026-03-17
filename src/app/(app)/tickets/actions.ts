@@ -18,16 +18,10 @@ async function getSessionUser() {
 
 /** Vérifie que l'utilisateur client a accès au projet */
 async function assertClientAccess(userId: number, projectId: number) {
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { clientId: true },
+  const link = await prisma.userProject.findUnique({
+    where: { userId_projectId: { userId, projectId } },
   });
-  if (!user.clientId) throw new Error("Accès refusé");
-  const project = await prisma.project.findUniqueOrThrow({
-    where: { id: projectId },
-    select: { clientId: true },
-  });
-  if (project.clientId !== user.clientId) throw new Error("Accès refusé");
+  if (!link) throw new Error("Accès refusé");
 }
 
 // ─── Tickets ──────────────────────────────────────────────

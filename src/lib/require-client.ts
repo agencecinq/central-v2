@@ -4,12 +4,12 @@ import { redirect } from "next/navigation";
 
 /**
  * Server-side helper for /espace-client pages.
- * Verifies: authenticated + role === "client" + has clientId.
- * Returns { userId, clientId, userName } or redirects.
+ * Verifies: authenticated + role === "client" + has at least one project assigned.
+ * Returns { userId, projectIds, userName } or redirects.
  */
 export async function requireClient(): Promise<{
   userId: number;
-  clientId: number;
+  projectIds: number[];
   userName: string;
 }> {
   const session = await auth();
@@ -20,10 +20,17 @@ export async function requireClient(): Promise<{
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { clientId: true, name: true },
+    select: {
+      name: true,
+      userProjects: { select: { projectId: true } },
+    },
   });
 
-  if (!user?.clientId) redirect("/dashboard");
+  if (!user || user.userProjects.length === 0) redirect("/dashboard");
 
-  return { userId, clientId: user.clientId, userName: user.name };
+  return {
+    userId,
+    projectIds: user.userProjects.map((up) => up.projectId),
+    userName: user.name,
+  };
 }

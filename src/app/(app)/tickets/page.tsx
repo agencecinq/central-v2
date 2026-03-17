@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
@@ -22,18 +23,18 @@ export default async function TicketsPage() {
   const role = session.user.role;
 
   // Filtre par accès client
-  let projectFilter: { clientId?: number } | undefined;
+  let ticketWhere: Prisma.TicketWhereInput | undefined;
   if (role === "client") {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { clientId: true },
+    const userProjects = await prisma.userProject.findMany({
+      where: { userId },
+      select: { projectId: true },
     });
-    if (!user?.clientId) redirect("/dashboard");
-    projectFilter = { clientId: user.clientId };
+    if (userProjects.length === 0) redirect("/dashboard");
+    ticketWhere = { projectId: { in: userProjects.map((up) => up.projectId) } };
   }
 
   const tickets = await prisma.ticket.findMany({
-    where: projectFilter ? { project: projectFilter } : undefined,
+    where: ticketWhere,
     include: {
       project: { select: { id: true, titre: true, chefProjetId: true, statut: true } },
       createur: { select: { id: true, name: true } },
@@ -59,10 +60,13 @@ export default async function TicketsPage() {
   }));
 
   // Projets pour le dialog de création
+  const clientProjectIds = ticketWhere && "projectId" in ticketWhere
+    ? (ticketWhere.projectId as { in: number[] }).in
+    : undefined;
   const projects = await prisma.project.findMany({
     where: {
       statut: { not: "archive" },
-      ...(projectFilter ?? {}),
+      ...(clientProjectIds ? { id: { in: clientProjectIds } } : {}),
     },
     select: {
       id: true,

@@ -34,10 +34,10 @@ function formatDate(iso: string | null): string {
 }
 
 export default async function ClientProjetsPage() {
-  const { clientId } = await requireClient();
+  const { projectIds } = await requireClient();
 
   const projects = await prisma.project.findMany({
-    where: { clientId },
+    where: { id: { in: projectIds } },
     include: {
       tasks: { select: { id: true, statutKanban: true } },
     },

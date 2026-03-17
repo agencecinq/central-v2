@@ -49,13 +49,10 @@ export default async function TicketDetailPage({
 
   // Client access check
   if (role === "client") {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { clientId: true },
+    const hasAccess = await prisma.userProject.findUnique({
+      where: { userId_projectId: { userId, projectId: ticket.project.id } },
     });
-    if (!user?.clientId || ticket.project.clientId !== user.clientId) {
-      notFound();
-    }
+    if (!hasAccess) notFound();
   }
 
   const users = await prisma.user.findMany({

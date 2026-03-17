@@ -13,19 +13,19 @@ function formatCurrency(amount: number): string {
 }
 
 export default async function EspaceClientPage() {
-  const { clientId, userName } = await requireClient();
+  const { projectIds, userName } = await requireClient();
 
   const [projects, tickets, deals] = await Promise.all([
     prisma.project.findMany({
-      where: { clientId },
+      where: { id: { in: projectIds } },
       select: { id: true, statut: true },
     }),
     prisma.ticket.findMany({
-      where: { project: { clientId } },
+      where: { projectId: { in: projectIds } },
       select: { id: true, statut: true },
     }),
     prisma.deal.findMany({
-      where: { clientId },
+      where: { projects: { some: { id: { in: projectIds } } } },
       include: { dealFactures: { select: { montantHT: true } } },
     }),
   ]);

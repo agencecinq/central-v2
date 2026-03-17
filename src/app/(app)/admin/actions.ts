@@ -25,26 +25,27 @@ export async function updateUserRole(userId: number, newRole: string) {
 
   await prisma.user.update({
     where: { id: userId },
-    data: {
-      role: newRole,
-      // Auto-clear clientId when switching away from client role
-      ...(newRole !== ROLES.CLIENT ? { clientId: null } : {}),
-    },
+    data: { role: newRole },
   });
 
   revalidatePath(PATH);
 }
 
-export async function updateUserClient(userId: number, clientId: number | null) {
+export async function toggleUserProject(userId: number, projectId: number) {
   const session = await auth();
   if (!session || !isAdmin(session.user.role)) {
     throw new Error("Accès refusé");
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { clientId },
+  const existing = await prisma.userProject.findUnique({
+    where: { userId_projectId: { userId, projectId } },
   });
+
+  if (existing) {
+    await prisma.userProject.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.userProject.create({ data: { userId, projectId } });
+  }
 
   revalidatePath(PATH);
 }
@@ -85,6 +86,45 @@ export async function toggleUserMetier(userId: number, metierId: number) {
 
   revalidatePath(PATH);
   revalidatePath("/projets/charge-de-travail");
+}
+
+// ─── Users ──────────────────────────────────────────────────────────────────
+
+export async function createUser(data: {
+  name: string;
+  email: string;
+  role: string;
+}) {
+  const session = await auth();
+  if (!session || !isAdmin(session.user.role)) {
+    throw new Error("Accès refusé");
+  }
+
+  if (!data.name.trim() || !data.email.trim()) {
+    throw new Error("Nom et email requis");
+  }
+
+  if (!VALID_ROLES.includes(data.role)) {
+    throw new Error("Rôle invalide");
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { email: data.email.toLowerCase().trim() },
+  });
+  if (existing) {
+    throw new Error("Un utilisateur avec cet email existe déjà");
+  }
+
+  await prisma.user.create({
+    data: {
+      name: data.name.trim(),
+      email: data.email.toLowerCase().trim(),
+      role: data.role,
+      password: "",
+    },
+  });
+
+  revalidatePath(PATH);
 }
 
 // ─── Métiers ─────────────────────────────────────────────────────────────────

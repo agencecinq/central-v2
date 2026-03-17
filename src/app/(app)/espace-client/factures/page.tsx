@@ -46,10 +46,10 @@ interface DealSummary {
 }
 
 export default async function ClientFacturesPage() {
-  const { clientId } = await requireClient();
+  const { projectIds } = await requireClient();
 
   const deals = await prisma.deal.findMany({
-    where: { clientId },
+    where: { projects: { some: { id: { in: projectIds } } } },
     include: {
       dealFactures: { orderBy: { dateFacture: "desc" } },
     },

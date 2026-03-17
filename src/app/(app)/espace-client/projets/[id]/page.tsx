@@ -60,10 +60,10 @@ export default async function ClientProjectDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { clientId } = await requireClient();
+  const { projectIds } = await requireClient();
   const { id } = await params;
   const projectId = parseInt(id, 10);
-  if (isNaN(projectId)) notFound();
+  if (isNaN(projectId) || !projectIds.includes(projectId)) notFound();
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -80,7 +80,7 @@ export default async function ClientProjectDetailPage({
     },
   });
 
-  if (!project || project.clientId !== clientId) notFound();
+  if (!project) notFound();
 
   // Task stats
   const tasksDone = project.tasks.filter((t) => t.statutKanban === "done").length;
