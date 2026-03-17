@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin, ROLES, type Role } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 
 const PATH = "/admin";
 const VALID_ROLES: string[] = Object.values(ROLES);
@@ -94,6 +95,7 @@ export async function createUser(data: {
   name: string;
   email: string;
   role: string;
+  password?: string;
 }) {
   const session = await auth();
   if (!session || !isAdmin(session.user.role)) {
@@ -108,6 +110,11 @@ export async function createUser(data: {
     throw new Error("Rôle invalide");
   }
 
+  // Client users must have a password for email/password login
+  if (data.role === ROLES.CLIENT && (!data.password || data.password.length < 6)) {
+    throw new Error("Un mot de passe d'au moins 6 caractères est requis pour les clients");
+  }
+
   const existing = await prisma.user.findUnique({
     where: { email: data.email.toLowerCase().trim() },
   });
@@ -115,12 +122,16 @@ export async function createUser(data: {
     throw new Error("Un utilisateur avec cet email existe déjà");
   }
 
+  const hashedPassword = data.password
+    ? await bcrypt.hash(data.password, 10)
+    : "";
+
   await prisma.user.create({
     data: {
       name: data.name.trim(),
       email: data.email.toLowerCase().trim(),
       role: data.role,
-      password: "",
+      password: hashedPassword,
     },
   });
 

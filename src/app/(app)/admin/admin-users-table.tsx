@@ -83,10 +83,11 @@ function CreateUserDialog({
     const form = new FormData(e.currentTarget);
     const name = (form.get("name") as string).trim();
     const email = (form.get("email") as string).trim();
+    const password = (form.get("password") as string | null) ?? undefined;
 
     startTransition(async () => {
       try {
-        await createUser({ name, email, role });
+        await createUser({ name, email, role, password: password || undefined });
         onOpenChange(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erreur");
@@ -122,6 +123,23 @@ function CreateUserDialog({
               </SelectContent>
             </Select>
           </div>
+          {role === ROLES.CLIENT && (
+            <div className="space-y-2">
+              <Label htmlFor="user-password">Mot de passe *</Label>
+              <Input
+                id="user-password"
+                name="password"
+                type="password"
+                required
+                minLength={6}
+                placeholder="Min. 6 caractères"
+                autoComplete="new-password"
+              />
+              <p className="text-xs text-muted-foreground">
+                Le client se connectera avec son email et ce mot de passe.
+              </p>
+            </div>
+          )}
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
