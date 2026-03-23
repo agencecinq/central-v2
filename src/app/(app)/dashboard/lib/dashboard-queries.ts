@@ -251,3 +251,43 @@ export async function getWeeklyTime(userId: number): Promise<WeeklyTimeData> {
     projects,
   };
 }
+
+// ─── Quest progression ──────────────────────────────────────────────────────
+
+export interface QuestProgressionData {
+  earnedPoints: number;
+  totalPoints: number;
+  completedTasks: number;
+  totalTasks: number;
+  badgesUnlocked: number;
+  totalBadges: number;
+}
+
+export async function getQuestProgression(): Promise<QuestProgressionData> {
+  const { QUEST_PHASES, QUEST_BADGES, ALL_TASK_IDS, TOTAL_POINTS } = await import("@/lib/quest-data");
+
+  const [completions, badges] = await Promise.all([
+    prisma.questCompletion.findMany({ select: { taskId: true } }),
+    prisma.questBadge.count(),
+  ]);
+
+  const completedIds = new Set(completions.map((c) => c.taskId));
+
+  let earnedPoints = 0;
+  for (const phase of QUEST_PHASES) {
+    for (const axe of phase.axes) {
+      for (const task of axe.tasks) {
+        if (completedIds.has(task.id)) earnedPoints += task.points;
+      }
+    }
+  }
+
+  return {
+    earnedPoints,
+    totalPoints: TOTAL_POINTS,
+    completedTasks: completedIds.size,
+    totalTasks: ALL_TASK_IDS.length,
+    badgesUnlocked: badges,
+    totalBadges: QUEST_BADGES.length,
+  };
+}

@@ -14,6 +14,7 @@ import { TachesEnCoursWidget } from "./widgets/taches-en-cours";
 import { TicketsOuvertsWidget } from "./widgets/tickets-ouverts";
 import { FinanceCaWidget } from "./widgets/finance-ca";
 import { TempsSemaineWidget } from "./widgets/temps-semaine";
+import { QuestProgressionWidget } from "./widgets/quest-progression";
 import { WIDGET_IDS } from "./lib/dashboard-defaults";
 import type {
   ActiveProject,
@@ -21,6 +22,7 @@ import type {
   OpenTicket,
   FinanceSummary,
   WeeklyTimeData,
+  QuestProgressionData,
 } from "./lib/dashboard-queries";
 
 import "react-grid-layout/css/styles.css";
@@ -34,6 +36,7 @@ export interface WidgetData {
   [WIDGET_IDS.TICKETS]: { count: number; items: OpenTicket[] };
   [WIDGET_IDS.FINANCE]: FinanceSummary | null;
   [WIDGET_IDS.TEMPS]: WeeklyTimeData;
+  [WIDGET_IDS.QUEST]: QuestProgressionData;
 }
 
 interface Props {
@@ -58,6 +61,9 @@ const WIDGET_COMPONENTS: Record<
     data: never;
   }>,
   [WIDGET_IDS.TEMPS]: TempsSemaineWidget as React.ComponentType<{
+    data: never;
+  }>,
+  [WIDGET_IDS.QUEST]: QuestProgressionWidget as React.ComponentType<{
     data: never;
   }>,
 };
