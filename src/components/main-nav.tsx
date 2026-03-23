@@ -11,6 +11,7 @@ import {
   Settings,
   Ticket,
   FileText,
+  Swords,
 } from "lucide-react";
 import type { Role } from "@/lib/roles";
 
@@ -25,6 +26,7 @@ const navItems: {
   { href: "/crm", label: "CRM", icon: Users, requiredRoles: ["admin", "equipe"] },
   { href: "/finance", label: "Finance", icon: Receipt, requiredRoles: ["admin"] },
   { href: "/timetracking", label: "Timetracking", icon: Clock, requiredRoles: ["admin", "equipe"] },
+  { href: "/quest", label: "Quest", icon: Swords, requiredRoles: ["admin", "equipe"] },
   { href: "/admin", label: "Admin", icon: Settings, requiredRoles: ["admin"] },
   // Client portal
   { href: "/espace-client/projets", label: "Mes projets", icon: FolderKanban, requiredRoles: ["client"] },

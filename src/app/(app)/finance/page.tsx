@@ -50,6 +50,7 @@ interface FinanceData {
   signedDeals: SignedDeal[];
   totalResteAFacturer: number;
   allInvoices: QontoInvoiceSummary[];
+  unlinkedInvoices: QontoInvoiceSummary[];
   qontoError: string | null;
 }
 
@@ -127,6 +128,14 @@ async function getFinanceData(): Promise<FinanceData> {
     0,
   );
 
+  // Find invoices not linked to any deal
+  const linkedQontoIds = new Set(
+    deals.flatMap((d) => d.dealFactures.map((df) => df.qontoInvoiceId)),
+  );
+  const unlinkedInvoices = allInvoices.filter(
+    (inv) => !linkedQontoIds.has(inv.qontoId),
+  );
+
   return {
     balance,
     pendingInvoices,
@@ -134,6 +143,7 @@ async function getFinanceData(): Promise<FinanceData> {
     signedDeals: dealsWithReste,
     totalResteAFacturer,
     allInvoices,
+    unlinkedInvoices,
     qontoError,
   };
 }
@@ -151,6 +161,7 @@ export default async function FinancePage() {
     signedDeals,
     totalResteAFacturer,
     allInvoices,
+    unlinkedInvoices,
     qontoError,
   } = await getFinanceData();
 
@@ -308,6 +319,82 @@ export default async function FinancePage() {
                           ) : (
                             <span className="text-muted-foreground text-xs">
                               À jour
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+      {/* Unlinked invoices */}
+      {!qontoError && unlinkedInvoices.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-lg font-semibold">
+            Factures non affectées à un deal
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({unlinkedInvoices.length})
+            </span>
+          </h3>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="px-4 py-3 font-medium">N°</th>
+                      <th className="px-4 py-3 font-medium">Client</th>
+                      <th className="px-4 py-3 font-medium text-right">
+                        Montant HT
+                      </th>
+                      <th className="px-4 py-3 font-medium text-right">
+                        Montant TTC
+                      </th>
+                      <th className="px-4 py-3 font-medium">Émission</th>
+                      <th className="px-4 py-3 font-medium">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {unlinkedInvoices.map((inv) => (
+                      <tr key={inv.qontoId} className="hover:bg-muted/50">
+                        <td className="px-4 py-3 font-mono text-xs">
+                          {inv.numero}
+                        </td>
+                        <td className="px-4 py-3">{inv.clientNom}</td>
+                        <td className="px-4 py-3 text-right font-medium tabular-nums">
+                          {formatEuro(inv.montantHT)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">
+                          {formatEuro(inv.montantTTC)}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {inv.dateEmission
+                            ? new Date(inv.dateEmission).toLocaleDateString(
+                                "fr-FR",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {inv.status === "paid" ? (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                              Payée
+                            </span>
+                          ) : inv.status === "pending" ? (
+                            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700">
+                              En attente
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                              {inv.status}
                             </span>
                           )}
                         </td>

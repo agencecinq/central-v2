@@ -58,8 +58,18 @@ export async function deleteSingletonExpense(
 
 // ─── Catégories liste (abonnements, prestataires) ────────────────────────────
 
+const LIST_CATEGORIES = [
+  "abonnements",
+  "prestataires",
+  "masse_salariale",
+  "bureaux",
+  "autres",
+] as const;
+
+type ListCategorie = (typeof LIST_CATEGORIES)[number];
+
 export async function createForecastExpense(data: {
-  categorie: "abonnements" | "prestataires";
+  categorie: ListCategorie;
   libelle: string;
   montant: number;
   mois?: string; // requis pour prestataires

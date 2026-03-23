@@ -39,6 +39,7 @@ model User {
   ticketComments    TicketComment[] @relation("TicketCommentAuteur")
   dashboardLayout   DashboardLayout?
   userProjects      UserProject[]
+  questCompletions  QuestCompletion[]
 
   @@map("users")
 }
@@ -430,4 +431,25 @@ model ProjectAllocation {
   tasks       Task[]
 
   @@map("project_allocations")
+}
+
+// ─── Quest (Plan d'exécution gamifié) ──────────────────────────────────────
+
+model QuestCompletion {
+  id          Int      @id @default(autoincrement())
+  taskId      String   @unique @map("task_id") @db.VarChar(20)
+  completedBy Int      @map("completed_by")
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  user        User     @relation(fields: [completedBy], references: [id])
+
+  @@map("quest_completions")
+}
+
+model QuestBadge {
+  id         Int      @id @default(autoincrement())
+  badgeId    String   @unique @map("badge_id") @db.VarChar(50)
+  unlockedAt DateTime @default(now()) @map("unlocked_at")
+
+  @@map("quest_badges")
 }

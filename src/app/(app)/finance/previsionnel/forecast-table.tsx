@@ -84,6 +84,9 @@ interface MonthData {
   emprunt: number;
   abonnements: number;
   prestataires: number;
+  masseSalariale: number;
+  bureaux: number;
+  autres: number;
   depensesPlanifiees: number;
   sorties: number;
   soldeDebut: number;
@@ -172,6 +175,15 @@ export function ForecastTable({
   const prestatairesList = forecastExpenses.filter(
     (e) => e.categorie === "prestataires",
   );
+  const masseSalarialeList = forecastExpenses.filter(
+    (e) => e.categorie === "masse_salariale",
+  );
+  const bureauxList = forecastExpenses.filter(
+    (e) => e.categorie === "bureaux",
+  );
+  const autresList = forecastExpenses.filter(
+    (e) => e.categorie === "autres",
+  );
 
   const holdSet = useMemo(() => new Set(invoiceHolds), [invoiceHolds]);
 
@@ -213,6 +225,9 @@ export function ForecastTable({
     const empruntMensuel = empruntRecord ? empruntRecord.montant : 0;
     const empruntFin = empruntRecord?.moisFin ?? "9999-12";
     const aboMensuel = abonnementsList.reduce((s, a) => s + a.montant, 0);
+    const masseSalarialeMensuel = masseSalarialeList.reduce((s, a) => s + a.montant, 0);
+    const bureauxMensuel = bureauxList.reduce((s, a) => s + a.montant, 0);
+    const autresMensuel = autresList.reduce((s, a) => s + a.montant, 0);
 
     // Group prestataires by month
     const prestaByMonth: Record<string, number> = {};
@@ -237,9 +252,12 @@ export function ForecastTable({
       const emprunt = key <= empruntFin ? empruntMensuel : 0;
       const abonnements = aboMensuel;
       const prestataires = prestaByMonth[key] ?? 0;
+      const masseSalariale = masseSalarialeMensuel;
+      const bureaux = bureauxMensuel;
+      const autres = autresMensuel;
 
       const depensesPlanifiees =
-        remuneration + emprunt + abonnements + prestataires;
+        remuneration + emprunt + abonnements + prestataires + masseSalariale + bureaux + autres;
       const sorties = depensesProjets + depensesPlanifiees;
 
       const soldeDebut = running;
@@ -256,6 +274,9 @@ export function ForecastTable({
         emprunt,
         abonnements,
         prestataires,
+        masseSalariale,
+        bureaux,
+        autres,
         depensesPlanifiees,
         sorties,
         soldeDebut,
@@ -278,6 +299,9 @@ export function ForecastTable({
     empruntRecord,
     abonnementsList,
     prestatairesList,
+    masseSalarialeList,
+    bureauxList,
+    autresList,
   ]);
 
   const totalEntrees = months.reduce((s, m) => s + m.entrees, 0);
@@ -289,6 +313,9 @@ export function ForecastTable({
   const totalEmprunt = months.reduce((s, m) => s + m.emprunt, 0);
   const totalAbo = months.reduce((s, m) => s + m.abonnements, 0);
   const totalPresta = months.reduce((s, m) => s + m.prestataires, 0);
+  const totalMasseSalariale = months.reduce((s, m) => s + m.masseSalariale, 0);
+  const totalBureaux = months.reduce((s, m) => s + m.bureaux, 0);
+  const totalAutres = months.reduce((s, m) => s + m.autres, 0);
 
   return (
     <div className="space-y-6">
@@ -418,6 +445,27 @@ export function ForecastTable({
                   total={totalPresta}
                   className="text-orange-600"
                 />
+                <SubRow
+                  label="Masse salariale"
+                  months={months}
+                  getValue={(m) => m.masseSalariale}
+                  total={totalMasseSalariale}
+                  className="text-orange-600"
+                />
+                <SubRow
+                  label="Bureaux"
+                  months={months}
+                  getValue={(m) => m.bureaux}
+                  total={totalBureaux}
+                  className="text-orange-600"
+                />
+                <SubRow
+                  label="Autres"
+                  months={months}
+                  getValue={(m) => m.autres}
+                  total={totalAutres}
+                  className="text-orange-600"
+                />
 
                 {/* Solde fin */}
                 <tr className="bg-muted/30">
@@ -503,6 +551,33 @@ export function ForecastTable({
 
           {/* Abonnements */}
           <AbonnementsSection items={abonnementsList} />
+
+          {/* Masse salariale */}
+          <RecurringExpenseSection
+            categorie="masse_salariale"
+            label="Masse salariale"
+            sublabel="Salaires et charges"
+            placeholder="Ex : Salaire dev, Charges sociales…"
+            items={masseSalarialeList}
+          />
+
+          {/* Bureaux */}
+          <RecurringExpenseSection
+            categorie="bureaux"
+            label="Bureaux"
+            sublabel="Loyer, charges, assurances…"
+            placeholder="Ex : Loyer, Électricité, Ménage…"
+            items={bureauxList}
+          />
+
+          {/* Autres */}
+          <RecurringExpenseSection
+            categorie="autres"
+            label="Autres"
+            sublabel="Charges diverses"
+            placeholder="Ex : Comptable, Téléphone…"
+            items={autresList}
+          />
 
           {/* Prestataires */}
           <PrestatairesSection
@@ -1025,6 +1100,147 @@ function AbonnementsSection({
               <Label htmlFor="abo-montant">Montant mensuel (€)</Label>
               <Input
                 id="abo-montant"
+                type="number"
+                min={0}
+                step="0.01"
+                value={montant}
+                onChange={(e) => setMontant(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={
+                isPending ||
+                !libelle.trim() ||
+                !montant ||
+                parseFloat(montant) <= 0
+              }
+            >
+              {isPending ? "…" : "Ajouter"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── Recurring expense (generic for masse salariale, bureaux, autres) ────────
+
+function RecurringExpenseSection({
+  categorie,
+  label,
+  sublabel,
+  placeholder,
+  items,
+}: {
+  categorie: "abonnements" | "prestataires" | "masse_salariale" | "bureaux" | "autres";
+  label: string;
+  sublabel: string;
+  placeholder: string;
+  items: ForecastExpenseItem[];
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [libelle, setLibelle] = useState("");
+  const [montant, setMontant] = useState("");
+
+  const total = items.reduce((s, a) => s + a.montant, 0);
+
+  function handleSubmit() {
+    if (!libelle.trim() || !montant) return;
+    startTransition(async () => {
+      await createForecastExpense({
+        categorie,
+        libelle: libelle.trim(),
+        montant: parseFloat(montant),
+      });
+      setDialogOpen(false);
+      setLibelle("");
+      setMontant("");
+    });
+  }
+
+  function handleDelete(id: number) {
+    startTransition(async () => {
+      await deleteForecastExpense(id);
+    });
+  }
+
+  return (
+    <div className="rounded-lg border p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <span className="text-sm font-medium">{label}</span>
+          <span className="text-xs text-muted-foreground ml-2">
+            — {sublabel}
+          </span>
+          {total > 0 && (
+            <span className="text-sm font-medium tabular-nums text-orange-600 ml-3">
+              {formatEuro(total)} /mois
+            </span>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setDialogOpen(true)}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Ajouter
+        </Button>
+      </div>
+
+      {items.length > 0 && (
+        <div className="space-y-1.5">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between text-sm py-1 px-2 rounded hover:bg-muted/50"
+            >
+              <span className="text-muted-foreground">{item.libelle}</span>
+              <div className="flex items-center gap-2">
+                <span className="tabular-nums text-orange-600 font-medium">
+                  {formatEuro(item.montant)}
+                </span>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  disabled={isPending}
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ajouter — {label}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor={`${categorie}-lib`}>Libellé</Label>
+              <Input
+                id={`${categorie}-lib`}
+                value={libelle}
+                onChange={(e) => setLibelle(e.target.value)}
+                placeholder={placeholder}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${categorie}-montant`}>Montant mensuel (€)</Label>
+              <Input
+                id={`${categorie}-montant`}
                 type="number"
                 min={0}
                 step="0.01"
