@@ -65,13 +65,13 @@ export async function POST(request: Request) {
           value: tjm.toFixed(2),
           currency: "EUR",
         },
-        vat_rate: Number(budget.tauxTva).toFixed(0),
+        vat_rate: (Number(budget.tauxTva) / 100).toFixed(2),
       };
 
       if (remise > 0) {
         item.discount = {
           type: "percentage",
-          value: remise.toFixed(2),
+          value: (remise / 100).toFixed(4),
         };
       }
 
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   if (remiseGlobale > 0) {
     payload.discount = {
       type: "percentage",
-      value: remiseGlobale.toFixed(2),
+      value: (remiseGlobale / 100).toFixed(4),
     };
   }
 
