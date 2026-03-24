@@ -1,6 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
 
@@ -115,4 +117,21 @@ export async function duplicateBudget(
 
   revalidatePath(`/crm/${dealId}`);
   return newBudget.id;
+}
+
+export async function updateClientQontoId(
+  clientId: number,
+  qontoClientId: string | null,
+) {
+  const session = await auth();
+  if (!session || !isAdmin(session.user.role)) {
+    throw new Error("Accès refusé");
+  }
+
+  await prisma.client.update({
+    where: { id: clientId },
+    data: { qontoClientId },
+  });
+
+  revalidatePath("/crm");
 }

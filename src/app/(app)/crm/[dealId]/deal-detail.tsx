@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -14,21 +14,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import {
   Plus,
   MoreHorizontal,
   Pencil,
   Copy,
   Trash2,
   FileText,
+  Link2,
 } from "lucide-react";
 import { DeleteDialog } from "../delete-dialog";
-import { deleteBudget, duplicateBudget } from "./actions";
+import { deleteBudget, duplicateBudget, updateClientQontoId } from "./actions";
+import type { QontoClient } from "@/lib/qonto";
 
 interface DealData {
   id: number;
   titre: string;
+  clientId: number;
   clientName: string;
   clientEmail: string;
+  qontoClientId: string | null;
+  qontoQuoteId: string | null;
   montantEstime: number;
   montantFinal: number | null;
   etape: string;
@@ -74,14 +85,24 @@ function formatDate(dateStr: string | null): string {
 export function DealDetail({
   deal,
   budgets,
+  qontoClients,
 }: {
   deal: DealData;
   budgets: BudgetData[];
+  qontoClients: QontoClient[];
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingBudgetId, setDeletingBudgetId] = useState<number | null>(null);
   const [deletingBudgetName, setDeletingBudgetName] = useState("");
+
+  function handleQontoLinkChange(value: string) {
+    startTransition(async () => {
+      await updateClientQontoId(deal.clientId, value === "none" ? null : value);
+      router.refresh();
+    });
+  }
 
   function openDeleteBudget(budget: BudgetData) {
     setDeletingBudgetId(budget.id);
@@ -112,6 +133,36 @@ export function DealDetail({
           <p className="mt-1 text-muted-foreground">
             {deal.clientName} · {deal.clientEmail}
           </p>
+          {/* Qonto client linking */}
+          <div className="mt-2 flex items-center gap-2">
+            <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Qonto :</span>
+            {qontoClients.length > 0 ? (
+              <Select
+                value={deal.qontoClientId ?? "none"}
+                onValueChange={(v) => handleQontoLinkChange(v ?? "none")}
+              >
+                <SelectTrigger
+                  className={`h-7 w-[220px] text-xs ${deal.qontoClientId ? "border-emerald-300 text-emerald-700" : ""}`}
+                  disabled={isPending}
+                >
+                  {deal.qontoClientId
+                    ? qontoClients.find((c) => c.id === deal.qontoClientId)?.name ?? "Client inconnu"
+                    : "Non lié"}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Non lié</SelectItem>
+                  {qontoClients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <span className="text-xs text-muted-foreground">Qonto non configuré</span>
+            )}
+          </div>
         </div>
       </div>
 

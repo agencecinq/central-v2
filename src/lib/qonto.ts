@@ -242,3 +242,107 @@ export async function getAllInvoices(): Promise<QontoInvoiceSummary[]> {
     })
     .sort((a, b) => (b.dateEmission ?? "").localeCompare(a.dateEmission ?? ""));
 }
+
+// ─── Qonto write helpers ─────────────────────────────────────────────────────
+
+async function qontoWrite<T>(
+  method: "POST" | "PUT",
+  endpoint: string,
+  body: unknown,
+): Promise<T> {
+  const { login, secretKey } = getCredentials();
+
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    method,
+    headers: {
+      Authorization: `${login}:${secretKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `Qonto API ${response.status} ${method} ${endpoint}: ${text.slice(0, 300)}`,
+    );
+  }
+
+  return response.json() as Promise<T>;
+}
+
+// ─── Qonto Clients ──────────────────────────────────────────────────────────
+
+export interface QontoClient {
+  id: string;
+  name: string;
+  email: string | null;
+}
+
+export async function getQontoClients(): Promise<QontoClient[]> {
+  const allClients: { id: string; name: string; email?: string }[] = [];
+  let currentPage = 1;
+  let totalPages = 1;
+
+  do {
+    const data = await qontoFetch<{
+      clients: { id: string; name: string; email?: string }[];
+      meta: { total_pages: number; current_page: number };
+    }>("/clients", { current_page: currentPage, per_page: 100 });
+
+    allClients.push(...data.clients);
+    totalPages = data.meta?.total_pages ?? 1;
+    currentPage++;
+  } while (currentPage <= totalPages);
+
+  return allClients.map((c) => ({
+    id: c.id,
+    name: c.name,
+    email: c.email ?? null,
+  }));
+}
+
+// ─── Qonto Quotes ───────────────────────────────────────────────────────────
+
+export interface QontoQuoteItem {
+  title: string;
+  description?: string;
+  quantity: string;
+  unit_price: { value: string; currency: string };
+  vat_rate: string;
+  discount?: { type: "percentage"; value: string };
+}
+
+export interface QontoQuotePayload {
+  client_id: string;
+  issue_date: string;
+  expiry_date: string;
+  terms_and_conditions?: string;
+  currency: string;
+  items: QontoQuoteItem[];
+  discount?: { type: "percentage"; value: string };
+}
+
+export async function createQuote(
+  data: QontoQuotePayload,
+): Promise<{ id: string; number: string }> {
+  const result = await qontoWrite<{ quote: { id: string; number: string } }>(
+    "POST",
+    "/quotes",
+    data,
+  );
+  return result.quote;
+}
+
+export async function updateQuote(
+  quoteId: string,
+  data: QontoQuotePayload,
+): Promise<{ id: string; number: string }> {
+  const result = await qontoWrite<{ quote: { id: string; number: string } }>(
+    "PUT",
+    `/quotes/${quoteId}`,
+    data,
+  );
+  return result.quote;
+}

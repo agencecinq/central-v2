@@ -45,14 +45,15 @@ model User {
 }
 
 model Client {
-  id          Int       @id @default(autoincrement())
-  nom         String    @db.VarChar(255)
-  email       String    @db.VarChar(255)
-  telephone   String?   @db.VarChar(255)
-  entreprise  String?   @db.VarChar(255)
-  statut      String    @default("prospect") @db.VarChar(50)
-  createdAt   DateTime? @map("created_at")
-  updatedAt   DateTime? @map("updated_at")
+  id              Int       @id @default(autoincrement())
+  nom             String    @db.VarChar(255)
+  email           String    @db.VarChar(255)
+  telephone       String?   @db.VarChar(255)
+  entreprise      String?   @db.VarChar(255)
+  statut          String    @default("prospect") @db.VarChar(50)
+  qontoClientId   String?   @map("qonto_client_id") @db.VarChar(255)
+  createdAt       DateTime? @map("created_at")
+  updatedAt       DateTime? @map("updated_at")
 
   projects    Project[]
   users       User[]

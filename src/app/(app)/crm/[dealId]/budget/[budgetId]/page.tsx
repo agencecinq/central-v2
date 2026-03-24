@@ -105,6 +105,8 @@ export default async function BudgetEditorPage({
         dealTitre={deal.titre}
         clientName={deal.client.entreprise || deal.client.nom}
         budget={serializedBudget}
+        qontoClientId={deal.client.qontoClientId ?? null}
+        qontoQuoteId={deal.qontoQuoteId ?? null}
       />
     </div>
   );

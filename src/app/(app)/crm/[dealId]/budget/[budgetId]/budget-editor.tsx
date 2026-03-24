@@ -16,7 +16,9 @@ import {
   Check,
   Sparkles,
   Loader2,
+  FileText,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { MiniEditor } from "@/components/mini-editor";
 import {
@@ -706,11 +708,15 @@ export function BudgetEditor({
   dealTitre,
   clientName,
   budget,
+  qontoClientId,
+  qontoQuoteId,
 }: {
   dealId: number;
   dealTitre: string;
   clientName: string;
   budget: SerializedBudget | null;
+  qontoClientId: string | null;
+  qontoQuoteId: string | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -721,6 +727,7 @@ export function BudgetEditor({
   const [brief, setBrief] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [isCreatingQuote, setIsCreatingQuote] = useState(false);
 
   async function handleGenerateAI() {
     if (brief.trim().length < 20) return;
@@ -743,6 +750,32 @@ export function BudgetEditor({
       setAiError("Erreur réseau. Réessayez.");
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  async function handleGenerateQuote() {
+    if (!budget) return;
+    setIsCreatingQuote(true);
+    try {
+      const res = await fetch("/api/qonto/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ budgetId: budget.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Erreur lors de la création du devis");
+        return;
+      }
+      toast.success(
+        data.action === "updated"
+          ? `Devis Qonto mis à jour (${data.quoteNumber})`
+          : `Devis Qonto créé (${data.quoteNumber})`,
+      );
+    } catch {
+      toast.error("Erreur réseau");
+    } finally {
+      setIsCreatingQuote(false);
     }
   }
 
@@ -874,13 +907,31 @@ export function BudgetEditor({
       {/* Left column — Form */}
       <div className="flex-1 min-w-0 space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {isNew ? "Nouveau budget" : `Budget : ${state.nom || "Sans nom"}`}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {dealTitre} · {clientName}
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {isNew ? "Nouveau budget" : `Budget : ${state.nom || "Sans nom"}`}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {dealTitre} · {clientName}
+            </p>
+          </div>
+          {!isNew && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateQuote}
+              disabled={isCreatingQuote || !qontoClientId}
+              title={!qontoClientId ? "Liez d'abord le client à Qonto depuis la page du deal" : undefined}
+            >
+              {isCreatingQuote ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4 mr-2" />
+              )}
+              {qontoQuoteId ? "Mettre à jour le devis Qonto" : "Générer le devis Qonto"}
+            </Button>
+          )}
         </div>
 
         {/* AI Brief Panel — only for new budgets */}

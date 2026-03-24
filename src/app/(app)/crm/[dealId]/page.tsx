@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getQontoClients, type QontoClient } from "@/lib/qonto";
 import { DealDetail } from "./deal-detail";
 
 export default async function DealDetailPage({
@@ -25,11 +26,22 @@ export default async function DealDetailPage({
 
   if (!deal) notFound();
 
+  // Fetch Qonto clients (best effort — don't block on failure)
+  let qontoClients: QontoClient[] = [];
+  try {
+    qontoClients = await getQontoClients();
+  } catch {
+    // Qonto not configured or unreachable — that's fine
+  }
+
   const serializedDeal = {
     id: deal.id,
     titre: deal.titre,
+    clientId: deal.client.id,
     clientName: deal.client.entreprise || deal.client.nom,
     clientEmail: deal.client.email,
+    qontoClientId: deal.client.qontoClientId ?? null,
+    qontoQuoteId: deal.qontoQuoteId ?? null,
     montantEstime: Number(deal.montantEstime),
     montantFinal: deal.montantFinal ? Number(deal.montantFinal) : null,
     etape: deal.etape,
@@ -58,7 +70,7 @@ export default async function DealDetailPage({
         Retour au CRM
       </Link>
 
-      <DealDetail deal={serializedDeal} budgets={serializedBudgets} />
+      <DealDetail deal={serializedDeal} budgets={serializedBudgets} qontoClients={qontoClients} />
     </div>
   );
 }
