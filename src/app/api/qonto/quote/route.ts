@@ -57,6 +57,9 @@ export async function POST(request: Request) {
       const tjm = Number(ss.tjm);
       const remise = Number(ss.remise);
 
+      // Skip sous-sections with no quantity or no price
+      if (!jours || !tjm) continue;
+
       const item: QontoQuoteItem = {
         title: ss.titre,
         description: `${jours.toFixed(1)} jour(s) × ${tjm.toFixed(0)} €/jour — ${section.titre}`,
