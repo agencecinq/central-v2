@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { SalesPipeline } from "./sales-pipeline";
+import { SignedRevenueTable } from "./signed-revenue-table";
 
 export default async function CrmPage() {
   const [deals, clients] = await Promise.all([
@@ -29,5 +30,10 @@ export default async function CrmPage() {
     name: c.entreprise || c.nom,
   }));
 
-  return <SalesPipeline deals={serializedDeals} clients={clientOptions} />;
+  return (
+    <div className="space-y-6">
+      <SignedRevenueTable deals={serializedDeals} />
+      <SalesPipeline deals={serializedDeals} clients={clientOptions} />
+    </div>
+  );
 }
