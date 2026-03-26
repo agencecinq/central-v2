@@ -165,11 +165,13 @@ export async function getYearlyTransactionTotals(
   const accounts = await getBankAccounts();
   if (accounts.length === 0) return { encaisse: 0, depense: 0 };
 
-  const startDate = `${year}-01-01`;
-  const endDate = `${year}-12-31`;
+  const startDate = `${year}-01-01T00:00:00Z`;
+  const endDate = `${year}-12-31T23:59:59Z`;
 
   let encaisse = 0;
   let depense = 0;
+
+  console.log(`[Qonto Transactions] year=${year} startDate=${startDate} endDate=${endDate} accounts=${accounts.length}`);
 
   for (const account of accounts) {
     let currentPage = 1;
@@ -200,6 +202,7 @@ export async function getYearlyTransactionTotals(
     } while (currentPage <= totalPages);
   }
 
+  console.log(`[Qonto Transactions] Result: encaisse=${encaisse.toFixed(2)} depense=${depense.toFixed(2)}`);
   return { encaisse, depense };
 }
 
