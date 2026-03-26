@@ -67,6 +67,18 @@ export interface PendingInvoice {
   invoiceUrl: string | null;
 }
 
+// ─── VAT helper ──────────────────────────────────────────────────────────────
+// On balance invoices (factures de solde), Qonto returns total_amount_cents as
+// the amount due (after deposit deduction) but vat_amount_cents as the FULL
+// invoice VAT. This makes HT = total - vat incorrect.
+// Fix: cap VAT to the maximum plausible amount for the given total (20% rate).
+function computeHT(totalAmountCents: number, vatAmountCents: number): number {
+  // Max VAT that could apply to totalAmountCents at 20%
+  const maxVatCents = Math.round((totalAmountCents * 0.2) / 1.2);
+  const adjustedVatCents = Math.min(vatAmountCents, maxVatCents);
+  return (totalAmountCents - adjustedVatCents) / 100;
+}
+
 // ─── Low-level fetch ─────────────────────────────────────────────────────────
 
 async function qontoFetch<T>(
@@ -158,7 +170,7 @@ export async function getPendingInvoices(): Promise<PendingInvoice[]> {
     .map((inv) => {
       const totalAmountCents = inv.total_amount_cents ?? 0;
       const vatAmountCents = inv.vat_amount_cents ?? 0;
-      const montantHT = (totalAmountCents - vatAmountCents) / 100;
+      const montantHT = computeHT(totalAmountCents, vatAmountCents);
       const montantTTC = totalAmountCents / 100;
 
       const dueDate = new Date(inv.due_date!);
@@ -234,7 +246,7 @@ export async function getAllInvoices(): Promise<QontoInvoiceSummary[]> {
         qontoId: inv.id,
         numero: inv.number || "N/A",
         clientNom: inv.client?.name || "N/A",
-        montantHT: (totalAmountCents - vatAmountCents) / 100,
+        montantHT: computeHT(totalAmountCents, vatAmountCents),
         montantTTC: totalAmountCents / 100,
         status: inv.status,
         dateEmission: inv.issue_date,
