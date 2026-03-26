@@ -318,28 +318,21 @@ export async function getYearlyPipeline(): Promise<YearlyPipelineData> {
   });
   const signe = signedDeals.reduce((s, d) => s + Number(d.montantFinal), 0);
 
-  // 2. Facturé cette année : DealFacture avec dateFacture dans l'année
-  const yearFactures = await prisma.dealFacture.findMany({
-    where: {
-      dateFacture: { gte: new Date(yearStart) },
-    },
-    select: { montantHT: true },
-  });
-  const facture = yearFactures.reduce((s, f) => s + Number(f.montantHT), 0);
-
-  // 3. Encaissé cette année : factures Qonto payées émises cette année
+  // 2 & 3. Facturé et encaissé depuis Qonto (source de vérité)
+  let facture = 0;
   let encaisse = 0;
   let qontoError = false;
   try {
     const allInvoices = await getAllInvoices();
-    encaisse = allInvoices
-      .filter(
-        (inv) =>
-          inv.status === "paid" &&
-          inv.dateEmission &&
-          inv.dateEmission >= yearStart,
-      )
-      .reduce((s, inv) => s + inv.montantHT, 0);
+    for (const inv of allInvoices) {
+      if (!inv.dateEmission || inv.dateEmission < yearStart) continue;
+      // Facturé = toutes les factures émises cette année (payées ou non)
+      facture += inv.montantHT;
+      // Encaissé = uniquement celles qui sont payées
+      if (inv.status === "paid") {
+        encaisse += inv.montantHT;
+      }
+    }
   } catch {
     qontoError = true;
   }
