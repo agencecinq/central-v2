@@ -20,6 +20,7 @@ import {
   type QontoInvoiceSummary,
 } from "@/lib/qonto";
 import { SignedDealsSection } from "./signed-deals-section";
+import { SyncButton } from "./sync-button";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ interface FinanceData {
   signedDeals: SignedDeal[];
   totalResteAFacturer: number;
   allInvoices: QontoInvoiceSummary[];
+  allLinkedQontoIds: string[];
   unlinkedInvoices: QontoInvoiceSummary[];
   qontoError: string | null;
 }
@@ -129,9 +131,10 @@ async function getFinanceData(): Promise<FinanceData> {
   );
 
   // Find invoices not linked to any deal
-  const linkedQontoIds = new Set(
-    deals.flatMap((d) => d.dealFactures.map((df) => df.qontoInvoiceId)),
+  const allLinkedQontoIdsList = deals.flatMap((d) =>
+    d.dealFactures.map((df) => df.qontoInvoiceId),
   );
+  const linkedQontoIds = new Set(allLinkedQontoIdsList);
   const unlinkedInvoices = allInvoices.filter(
     (inv) => !linkedQontoIds.has(inv.qontoId),
   );
@@ -143,6 +146,7 @@ async function getFinanceData(): Promise<FinanceData> {
     signedDeals: dealsWithReste,
     totalResteAFacturer,
     allInvoices,
+    allLinkedQontoIds: allLinkedQontoIdsList,
     unlinkedInvoices,
     qontoError,
   };
@@ -161,6 +165,7 @@ export default async function FinancePage() {
     signedDeals,
     totalResteAFacturer,
     allInvoices,
+    allLinkedQontoIds,
     unlinkedInvoices,
     qontoError,
   } = await getFinanceData();
@@ -174,13 +179,16 @@ export default async function FinancePage() {
             Suivez la trésorerie et la facturation de l&apos;agence.
           </p>
         </div>
-        <Link
-          href="/finance/previsionnel"
-          className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-        >
-          <TrendingUp className="h-4 w-4" />
-          Prévisionnel
-        </Link>
+        <div className="flex items-center gap-2">
+          <SyncButton />
+          <Link
+            href="/finance/previsionnel"
+            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            <TrendingUp className="h-4 w-4" />
+            Prévisionnel
+          </Link>
+        </div>
       </div>
 
       {/* Qonto error banner */}
@@ -263,6 +271,7 @@ export default async function FinancePage() {
         <SignedDealsSection
           signedDeals={signedDeals}
           allInvoices={allInvoices}
+          allLinkedQontoIds={allLinkedQontoIds}
         />
       )}
 

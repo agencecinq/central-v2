@@ -27,11 +27,19 @@ interface SignedDeal {
 export function SignedDealsSection({
   signedDeals,
   allInvoices,
+  allLinkedQontoIds,
 }: {
   signedDeals: SignedDeal[];
   allInvoices: InvoiceSummary[];
+  allLinkedQontoIds: string[];
 }) {
   const [dialogDeal, setDialogDeal] = useState<SignedDeal | null>(null);
+
+  // Filter out invoices already linked to ANY deal
+  const globalLinkedSet = new Set(allLinkedQontoIds);
+  const availableInvoices = allInvoices.filter(
+    (inv) => !globalLinkedSet.has(inv.qontoId),
+  );
 
   return (
     <section className="space-y-3">
@@ -75,7 +83,7 @@ export function SignedDealsSection({
       {dialogDeal && (
         <LinkInvoiceDialog
           deal={dialogDeal}
-          allInvoices={allInvoices}
+          allInvoices={availableInvoices}
           open={true}
           onOpenChange={(open) => {
             if (!open) setDialogDeal(null);

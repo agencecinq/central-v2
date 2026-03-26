@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getTotalBalance,
   getPendingInvoices,
+  getAllInvoices,
 } from "@/lib/qonto";
 
 // ─── Projets actifs ─────────────────────────────────────────────────────────
@@ -290,4 +291,58 @@ export async function getQuestProgression(): Promise<QuestProgressionData> {
     badgesUnlocked: badges,
     totalBadges: QUEST_BADGES.length,
   };
+}
+
+// ─── Pipeline annuel (signé / facturé / encaissé) ───────────────────────────
+
+export interface YearlyPipelineData {
+  year: number;
+  signe: number;
+  facture: number;
+  encaisse: number;
+  qontoError: boolean;
+}
+
+export async function getYearlyPipeline(): Promise<YearlyPipelineData> {
+  const year = new Date().getFullYear();
+  const yearStart = `${year}-01-01`;
+
+  // 1. Signé cette année : deals "Gagné" avec dateSignature dans l'année
+  const signedDeals = await prisma.deal.findMany({
+    where: {
+      etape: "Gagné",
+      montantFinal: { not: null },
+      dateSignature: { gte: new Date(yearStart) },
+    },
+    select: { montantFinal: true },
+  });
+  const signe = signedDeals.reduce((s, d) => s + Number(d.montantFinal), 0);
+
+  // 2. Facturé cette année : DealFacture avec dateFacture dans l'année
+  const yearFactures = await prisma.dealFacture.findMany({
+    where: {
+      dateFacture: { gte: new Date(yearStart) },
+    },
+    select: { montantHT: true },
+  });
+  const facture = yearFactures.reduce((s, f) => s + Number(f.montantHT), 0);
+
+  // 3. Encaissé cette année : factures Qonto payées émises cette année
+  let encaisse = 0;
+  let qontoError = false;
+  try {
+    const allInvoices = await getAllInvoices();
+    encaisse = allInvoices
+      .filter(
+        (inv) =>
+          inv.status === "paid" &&
+          inv.dateEmission &&
+          inv.dateEmission >= yearStart,
+      )
+      .reduce((s, inv) => s + inv.montantHT, 0);
+  } catch {
+    qontoError = true;
+  }
+
+  return { year, signe, facture, encaisse, qontoError };
 }
