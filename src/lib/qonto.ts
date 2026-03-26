@@ -165,8 +165,8 @@ export async function getYearlyTransactionTotals(
   const accounts = await getBankAccounts();
   if (accounts.length === 0) return { encaisse: 0, depense: 0 };
 
-  const startDate = `${year}-01-01T00:00:00.000Z`;
-  const endDate = `${year + 1}-01-01T00:00:00.000Z`;
+  const startDate = `${year}-01-01`;
+  const endDate = `${year}-12-31`;
 
   let encaisse = 0;
   let depense = 0;
@@ -181,8 +181,8 @@ export async function getYearlyTransactionTotals(
         meta: { total_pages: number; current_page: number };
       }>("/transactions", {
         bank_account_id: account.id,
-        settled_at_from: startDate,
-        settled_at_to: endDate,
+        started_at: startDate,
+        ended_at: endDate,
         current_page: currentPage,
         per_page: 100,
       });
