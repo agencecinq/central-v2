@@ -165,16 +165,14 @@ export async function getYearlyTransactionTotals(
   const accounts = await getBankAccounts();
   if (accounts.length === 0) return { encaisse: 0, depense: 0 };
 
-  const startDate = `${year}-01-01T00:00:00Z`;
-  const endDate = `${year}-12-31T23:59:59Z`;
+  const settledFrom = `${year}-01-01T00:00:00.000Z`;
+  const settledTo = `${year}-12-31T23:59:59.999Z`;
 
   let encaisse = 0;
   let depense = 0;
 
-  console.log(`[Qonto Transactions] year=${year} startDate=${startDate} endDate=${endDate} accounts=${accounts.length}`);
-
   for (const account of accounts) {
-    let currentPage = 1;
+    let page = 1;
     let totalPages = 1;
 
     do {
@@ -183,9 +181,10 @@ export async function getYearlyTransactionTotals(
         meta: { total_pages: number; current_page: number };
       }>("/transactions", {
         bank_account_id: account.id,
-        started_at: startDate,
-        ended_at: endDate,
-        current_page: currentPage,
+        "status[]": "completed",
+        settled_at_from: settledFrom,
+        settled_at_to: settledTo,
+        page,
         per_page: 100,
       });
 
@@ -198,11 +197,10 @@ export async function getYearlyTransactionTotals(
       }
 
       totalPages = data.meta?.total_pages ?? 1;
-      currentPage++;
-    } while (currentPage <= totalPages);
+      page++;
+    } while (page <= totalPages);
   }
 
-  console.log(`[Qonto Transactions] Result: encaisse=${encaisse.toFixed(2)} depense=${depense.toFixed(2)}`);
   return { encaisse, depense };
 }
 
