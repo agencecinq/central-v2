@@ -50,6 +50,7 @@ export interface QontoClientInvoice {
   vat_amount_cents: number;
   due_date: string | null;
   issue_date: string | null;
+  payment_date: string | null; // date de paiement effectif
   currency: string;
   client: { name: string } | null;
   invoice_url: string | null;
@@ -138,6 +139,70 @@ export async function getTotalBalance(): Promise<number> {
   return accounts.reduce((sum, a) => sum + (a.balance ?? 0), 0);
 }
 
+// ─── Transactions ────────────────────────────────────────────────────────────
+
+interface QontoTransaction {
+  id: string;
+  amount: number; // en euros
+  side: "credit" | "debit";
+  settled_at: string | null;
+  emitted_at: string | null;
+  status: string;
+}
+
+export interface YearlyTransactionTotals {
+  encaisse: number; // total crédits (entrées)
+  depense: number;  // total débits (sorties)
+}
+
+/**
+ * Get yearly credit/debit totals from bank transactions.
+ * Uses settled_at (or emitted_at as fallback) for date filtering.
+ */
+export async function getYearlyTransactionTotals(
+  year: number,
+): Promise<YearlyTransactionTotals> {
+  const accounts = await getBankAccounts();
+  if (accounts.length === 0) return { encaisse: 0, depense: 0 };
+
+  const startDate = `${year}-01-01T00:00:00.000Z`;
+  const endDate = `${year + 1}-01-01T00:00:00.000Z`;
+
+  let encaisse = 0;
+  let depense = 0;
+
+  for (const account of accounts) {
+    let currentPage = 1;
+    let totalPages = 1;
+
+    do {
+      const data = await qontoFetch<{
+        transactions: QontoTransaction[];
+        meta: { total_pages: number; current_page: number };
+      }>("/transactions", {
+        bank_account_id: account.id,
+        settled_at_from: startDate,
+        settled_at_to: endDate,
+        current_page: currentPage,
+        per_page: 100,
+      });
+
+      for (const tx of data.transactions) {
+        if (tx.side === "credit") {
+          encaisse += tx.amount;
+        } else if (tx.side === "debit") {
+          depense += tx.amount;
+        }
+      }
+
+      totalPages = data.meta?.total_pages ?? 1;
+      currentPage++;
+    } while (currentPage <= totalPages);
+  }
+
+  return { encaisse, depense };
+}
+
 /**
  * Get all unpaid client invoices from Qonto (paginated).
  * Amounts are in cents in the API, converted to euros here.
@@ -188,6 +253,7 @@ export async function getPendingInvoices(): Promise<PendingInvoice[]> {
         montantTTC,
         dateEcheance: inv.due_date!,
         dateEmission: inv.issue_date,
+        datePaiement: inv.payment_date ?? null,
         joursRetard,
         invoiceUrl: inv.invoice_url,
       };
@@ -211,6 +277,7 @@ export interface QontoInvoiceSummary {
   montantTTC: number;
   status: string;
   dateEmission: string | null;
+  datePaiement: string | null;
 }
 
 /**
@@ -250,6 +317,7 @@ export async function getAllInvoices(): Promise<QontoInvoiceSummary[]> {
         montantTTC: totalAmountCents / 100,
         status: inv.status,
         dateEmission: inv.issue_date,
+        datePaiement: inv.payment_date ?? null,
       };
     })
     .sort((a, b) => (b.dateEmission ?? "").localeCompare(a.dateEmission ?? ""));

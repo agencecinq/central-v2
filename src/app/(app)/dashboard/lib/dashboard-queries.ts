@@ -3,6 +3,7 @@ import {
   getTotalBalance,
   getPendingInvoices,
   getAllInvoices,
+  getYearlyTransactionTotals,
 } from "@/lib/qonto";
 
 // ─── Projets actifs ─────────────────────────────────────────────────────────
@@ -300,6 +301,7 @@ export interface YearlyPipelineData {
   signe: number;
   facture: number;
   encaisse: number;
+  depense: number;
   qontoError: boolean;
 }
 
@@ -318,24 +320,32 @@ export async function getYearlyPipeline(): Promise<YearlyPipelineData> {
   });
   const signe = signedDeals.reduce((s, d) => s + Number(d.montantFinal), 0);
 
-  // 2 & 3. Facturé et encaissé depuis Qonto (source de vérité)
+  // 2. Facturé depuis Qonto (factures émises cette année)
   let facture = 0;
-  let encaisse = 0;
   let qontoError = false;
   try {
     const allInvoices = await getAllInvoices();
     for (const inv of allInvoices) {
-      if (!inv.dateEmission || inv.dateEmission < yearStart) continue;
-      // Facturé = toutes les factures émises cette année (payées ou non)
-      facture += inv.montantHT;
-      // Encaissé = uniquement celles qui sont payées
-      if (inv.status === "paid") {
-        encaisse += inv.montantHT;
+      if (inv.dateEmission && inv.dateEmission >= yearStart) {
+        facture += inv.montantHT;
       }
     }
   } catch {
     qontoError = true;
   }
 
-  return { year, signe, facture, encaisse, qontoError };
+  // 3 & 4. Encaissé et dépensé depuis les transactions bancaires Qonto
+  let encaisse = 0;
+  let depense = 0;
+  if (!qontoError) {
+    try {
+      const txTotals = await getYearlyTransactionTotals(year);
+      encaisse = txTotals.encaisse;
+      depense = txTotals.depense;
+    } catch {
+      qontoError = true;
+    }
+  }
+
+  return { year, signe, facture, encaisse, depense, qontoError };
 }
