@@ -466,7 +466,7 @@ export function AvailabilityGrid({
                     color?.classes ?? "bg-gray-100"
                   } ${isActive ? `ring-2 ${color?.ring ?? "ring-primary"} shadow-sm` : "opacity-70 hover:opacity-100"}`}
                 >
-                  <span className="truncate max-w-[120px]">{p.titre}</span>
+                  <span>{p.titre}</span>
                   {stats && stats.vendus > 0 && (
                     <span
                       className={`text-[10px] tabular-nums ${
@@ -509,7 +509,7 @@ export function AvailabilityGrid({
                       className="h-3 w-3 rounded-sm flex-shrink-0 border"
                       style={{ backgroundColor: p.color?.hex ?? "#e5e7eb" }}
                     />
-                    <span className="font-medium truncate flex-1 min-w-0">{p.titre}</span>
+                    <span className="font-medium flex-shrink-0">{p.titre}</span>
                     <span className="tabular-nums text-muted-foreground flex-shrink-0">
                       {p.stats.planifies}
                     </span>
@@ -654,8 +654,22 @@ export function AvailabilityGrid({
                                 }}
                                 onMouseEnter={() => handleMouseEnter(person.id, cell.date, cell.period)}
                               >
-                                <span className="text-[9px] font-medium whitespace-nowrap px-0.5">
-                                  {cell.projectTitre}{cell.colspan >= 4 ? ` (${jours}j)` : ""}
+                                <span className="text-[9px] font-medium truncate px-0.5">
+                                  {cell.colspan >= 4
+                                    ? `${cell.projectTitre} (${jours}j)`
+                                    : cell.colspan >= 2
+                                      ? cell.projectTitre!
+                                          .split(" ")
+                                          .map((w) => w[0])
+                                          .join("")
+                                          .slice(0, 4)
+                                          .toUpperCase()
+                                      : cell.projectTitre!
+                                          .split(" ")
+                                          .map((w) => w[0])
+                                          .join("")
+                                          .slice(0, 2)
+                                          .toUpperCase()}
                                 </span>
                               </div>
                             </td>
