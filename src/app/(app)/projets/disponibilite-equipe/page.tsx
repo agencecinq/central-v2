@@ -31,7 +31,7 @@ function getNext12WeeksWithDays() {
       const dayDate = new Date(monday);
       dayDate.setDate(dayDate.getDate() + d);
       days.push({
-        date: toWeekKey(dayDate), // reuse YYYY-MM-DD format
+        date: toWeekKey(dayDate),
         dayLabel: dayNames[d],
       });
     }
@@ -49,7 +49,6 @@ function getNext12WeeksWithDays() {
 async function getData() {
   const weeks = getNext12WeeksWithDays();
 
-  // Date range for slot query
   const firstDate = new Date(weeks[0].days[0].date);
   const lastWeek = weeks[weeks.length - 1];
   const lastDate = new Date(lastWeek.days[lastWeek.days.length - 1].date);
@@ -74,7 +73,50 @@ async function getData() {
     orderBy: { titre: "asc" },
   });
 
-  // Existing half-day slots
+  // ─── Jours vendus par projet (somme des allocations) ───
+  const allocations = await prisma.projectAllocation.findMany({
+    where: {
+      projectId: { in: projects.map((p) => p.id) },
+    },
+    select: { projectId: true, joursPrevus: true },
+  });
+
+  const joursVendusMap: Record<number, number> = {};
+  for (const a of allocations) {
+    joursVendusMap[a.projectId] =
+      (joursVendusMap[a.projectId] ?? 0) + Number(a.joursPrevus);
+  }
+
+  // ─── Jours planifiés par projet (ALL half-day slots, pas juste 12 semaines) ───
+  const plannedCounts = await prisma.halfDaySlot.groupBy({
+    by: ["projectId"],
+    _count: { id: true },
+    where: {
+      projectId: { in: projects.map((p) => p.id) },
+    },
+  });
+
+  const joursPlanifiesMap: Record<number, number> = {};
+  for (const pc of plannedCounts) {
+    joursPlanifiesMap[pc.projectId] = pc._count.id * 0.5; // each slot = 0.5 jour
+  }
+
+  // Build project stats
+  const projectStats: Record<
+    number,
+    { vendus: number; planifies: number; restants: number }
+  > = {};
+  for (const p of projects) {
+    const vendus = joursVendusMap[p.id] ?? 0;
+    const planifies = joursPlanifiesMap[p.id] ?? 0;
+    projectStats[p.id] = {
+      vendus: Math.round(vendus * 10) / 10,
+      planifies: Math.round(planifies * 10) / 10,
+      restants: Math.round((vendus - planifies) * 10) / 10,
+    };
+  }
+
+  // Existing half-day slots (12 weeks window for the grid)
   const slots = await prisma.halfDaySlot.findMany({
     where: {
       date: { gte: firstDate, lte: lastDate },
@@ -89,7 +131,7 @@ async function getData() {
     },
   });
 
-  // Build slot map: userId → "YYYY-MM-DD_AM" → { projectId, projectTitre }
+  // Build slot map
   const slotMap: Record<
     number,
     Record<string, { projectId: number; projectTitre: string }>
@@ -103,7 +145,6 @@ async function getData() {
     };
   }
 
-  // Team with data
   const people = teamUsers.map((u) => ({
     id: u.id,
     name: u.name,
@@ -112,7 +153,7 @@ async function getData() {
   }));
 
   // KPIs
-  const totalSlots = weeks.length * 10 * people.length; // 10 half-days per week
+  const totalSlots = weeks.length * 10 * people.length;
   const usedSlots = slots.length;
   const tauxOccupation =
     totalSlots > 0 ? Math.round((usedSlots / totalSlots) * 100) : 0;
@@ -121,6 +162,7 @@ async function getData() {
     weeks,
     people,
     projects,
+    projectStats,
     kpis: {
       totalPersonnes: people.length,
       totalSlots,
@@ -143,8 +185,8 @@ export default async function DisponibiliteEquipePage() {
           Disponibilité équipe
         </h2>
         <p className="mt-1 text-muted-foreground">
-          Planification par demi-journée — cliquez sur une cellule pour
-          assigner un projet
+          Planification par demi-journée — cliquez ou glissez pour assigner un
+          projet
         </p>
       </div>
 
@@ -152,6 +194,7 @@ export default async function DisponibiliteEquipePage() {
         weeks={data.weeks}
         people={data.people}
         projects={data.projects}
+        projectStats={data.projectStats}
         kpis={data.kpis}
       />
     </div>
