@@ -158,6 +158,71 @@ export function createMcpServer(): McpServer {
     },
   );
 
+  // 2b. Update project
+  server.tool(
+    "update_project",
+    "Modifier un projet (statut, titre, description, dates, budget, chef de projet, etc.)",
+    {
+      projectId: z.number().describe("ID du projet"),
+      titre: z.string().optional(),
+      description: z.string().optional(),
+      statut: z
+        .enum(["en_cours", "en_attente", "termine"])
+        .optional()
+        .describe("Statut du projet"),
+      dateDebut: z
+        .string()
+        .optional()
+        .describe("Date de début (YYYY-MM-DD)"),
+      dateFin: z.string().optional().describe("Date de fin (YYYY-MM-DD)"),
+      deadline: z.string().optional().describe("Deadline (YYYY-MM-DD)"),
+      budgetTotal: z.number().optional().describe("Budget total en €"),
+      chefProjetId: z
+        .number()
+        .nullable()
+        .optional()
+        .describe("ID du chef de projet (null pour retirer)"),
+      githubUrl: z.string().optional(),
+      figmaUrl: z.string().optional(),
+    },
+    async ({ projectId, ...updates }) => {
+      const data: Record<string, unknown> = {};
+      if (updates.titre !== undefined) data.titre = updates.titre;
+      if (updates.description !== undefined)
+        data.description = updates.description;
+      if (updates.statut !== undefined) data.statut = updates.statut;
+      if (updates.dateDebut !== undefined)
+        data.dateDebut = new Date(updates.dateDebut);
+      if (updates.dateFin !== undefined)
+        data.dateFin = new Date(updates.dateFin);
+      if (updates.deadline !== undefined)
+        data.deadline = new Date(updates.deadline);
+      if (updates.budgetTotal !== undefined)
+        data.budgetTotal = updates.budgetTotal;
+      if (updates.chefProjetId !== undefined)
+        data.chefProjetId = updates.chefProjetId;
+      if (updates.githubUrl !== undefined) data.githubUrl = updates.githubUrl;
+      if (updates.figmaUrl !== undefined) data.figmaUrl = updates.figmaUrl;
+
+      const project = await prisma.project.update({
+        where: { id: projectId },
+        data,
+        include: { client: { select: { entreprise: true, nom: true } } },
+      });
+
+      const client =
+        project.client?.entreprise || project.client?.nom || "—";
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Projet [${project.id}] mis à jour : ${project.titre} | ${project.statut} | Client: ${client}`,
+          },
+        ],
+      };
+    },
+  );
+
   // 3. Create task
   server.tool(
     "create_task",
@@ -771,6 +836,212 @@ export function createMcpServer(): McpServer {
       }
 
       return { content: [{ type: "text" as const, text }] };
+    },
+  );
+
+  // 13. List tickets
+  server.tool(
+    "list_tickets",
+    "Liste les tickets/bugs d'un projet avec filtrage par statut",
+    {
+      projectId: z.number().optional().describe("Filtrer par projet"),
+      statut: z
+        .enum(["ouvert", "en_cours", "resolu", "ferme"])
+        .optional()
+        .describe("Filtrer par statut"),
+      assigneId: z.number().optional().describe("Filtrer par assigné"),
+    },
+    async ({ projectId, statut, assigneId }) => {
+      const where: Record<string, unknown> = {};
+      if (projectId) where.projectId = projectId;
+      if (statut) where.statut = statut;
+      if (assigneId) where.assigneId = assigneId;
+
+      const tickets = await prisma.ticket.findMany({
+        where,
+        include: {
+          project: { select: { titre: true } },
+          createur: { select: { name: true } },
+          assigne: { select: { name: true } },
+          _count: { select: { comments: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+
+      const lines = tickets.map(
+        (t: {
+          id: number;
+          titre: string;
+          statut: string;
+          project: { titre: string };
+          createur: { name: string } | null;
+          assigne: { name: string } | null;
+          _count: { comments: number };
+          createdAt: Date | null;
+        }) => {
+          return `[${t.id}] ${t.titre} | ${t.statut} | Projet: ${t.project.titre} | Créé par: ${t.createur?.name || "—"} | Assigné: ${t.assigne?.name || "—"} | ${t._count.comments} commentaires | ${fmtDate(t.createdAt)}`;
+        },
+      );
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: lines.length > 0 ? lines.join("\n") : "Aucun ticket trouvé.",
+          },
+        ],
+      };
+    },
+  );
+
+  // 14. Get ticket detail
+  server.tool(
+    "get_ticket",
+    "Détail d'un ticket avec ses commentaires",
+    {
+      ticketId: z.number().describe("ID du ticket"),
+    },
+    async ({ ticketId }) => {
+      const t = await prisma.ticket.findUnique({
+        where: { id: ticketId },
+        include: {
+          project: { select: { titre: true } },
+          createur: { select: { name: true } },
+          assigne: { select: { name: true } },
+          comments: {
+            include: { auteur: { select: { name: true } } },
+            orderBy: { createdAt: "asc" },
+          },
+          attachments: { select: { filename: true, mimetype: true } },
+        },
+      });
+
+      if (!t)
+        return {
+          content: [
+            { type: "text" as const, text: `Ticket ${ticketId} non trouvé.` },
+          ],
+        };
+
+      let text = `# Ticket [${t.id}] ${t.titre}\n`;
+      text += `Statut: ${t.statut} | Projet: ${t.project.titre}\n`;
+      text += `Créé par: ${t.createur?.name || "—"} | Assigné: ${t.assigne?.name || "—"}\n`;
+      text += `Date: ${fmtDate(t.createdAt)}\n`;
+      if (t.description) text += `\n${t.description}\n`;
+      if (t.navigateur || t.tailleEcran) {
+        text += `\nMeta: ${t.navigateur || ""} ${t.tailleEcran || ""}\n`;
+      }
+      if (t.attachments.length > 0) {
+        text += `\n## Pièces jointes (${t.attachments.length})\n`;
+        for (const a of t.attachments) text += `- ${a.filename} (${a.mimetype})\n`;
+      }
+      if (t.comments.length > 0) {
+        text += `\n## Commentaires (${t.comments.length})\n`;
+        for (const c of t.comments) {
+          text += `- ${c.auteur.name} (${fmtDate(c.createdAt)}): ${c.contenu}\n`;
+        }
+      }
+
+      return { content: [{ type: "text" as const, text }] };
+    },
+  );
+
+  // 15. Create ticket
+  server.tool(
+    "create_ticket",
+    "Créer un nouveau ticket/bug dans un projet",
+    {
+      projectId: z.number().describe("ID du projet"),
+      titre: z.string().describe("Titre du ticket"),
+      description: z.string().optional().describe("Description du bug/ticket"),
+      createurId: z.number().optional().describe("ID du créateur"),
+      assigneId: z.number().optional().describe("ID de la personne assignée"),
+    },
+    async ({ projectId, titre, description, createurId, assigneId }) => {
+      const ticket = await prisma.ticket.create({
+        data: {
+          projectId,
+          titre,
+          description: description ?? null,
+          createurId: createurId ?? null,
+          assigneId: assigneId ?? null,
+        },
+      });
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Ticket créé : [${ticket.id}] ${ticket.titre} (${ticket.statut})`,
+          },
+        ],
+      };
+    },
+  );
+
+  // 16. Update ticket
+  server.tool(
+    "update_ticket",
+    "Modifier un ticket (statut, assignation, titre, etc.)",
+    {
+      ticketId: z.number().describe("ID du ticket"),
+      titre: z.string().optional(),
+      description: z.string().optional(),
+      statut: z
+        .enum(["ouvert", "en_cours", "resolu", "ferme"])
+        .optional()
+        .describe("Nouveau statut"),
+      assigneId: z
+        .number()
+        .nullable()
+        .optional()
+        .describe("ID assigné (null pour désassigner)"),
+    },
+    async ({ ticketId, ...updates }) => {
+      const data: Record<string, unknown> = {};
+      if (updates.titre !== undefined) data.titre = updates.titre;
+      if (updates.description !== undefined)
+        data.description = updates.description;
+      if (updates.statut !== undefined) data.statut = updates.statut;
+      if (updates.assigneId !== undefined) data.assigneId = updates.assigneId;
+
+      const ticket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data,
+      });
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Ticket [${ticket.id}] mis à jour : ${ticket.titre} (${ticket.statut})`,
+          },
+        ],
+      };
+    },
+  );
+
+  // 17. Add comment to ticket
+  server.tool(
+    "add_ticket_comment",
+    "Ajouter un commentaire à un ticket",
+    {
+      ticketId: z.number().describe("ID du ticket"),
+      auteurId: z.number().describe("ID de l'auteur du commentaire"),
+      contenu: z.string().describe("Contenu du commentaire"),
+    },
+    async ({ ticketId, auteurId, contenu }) => {
+      const comment = await prisma.ticketComment.create({
+        data: { ticketId, auteurId, contenu },
+        include: { auteur: { select: { name: true } } },
+      });
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Commentaire ajouté par ${comment.auteur.name} sur le ticket ${ticketId}`,
+          },
+        ],
+      };
     },
   );
 
