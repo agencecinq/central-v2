@@ -11,9 +11,10 @@ export async function middleware(req: NextRequest) {
 
   const isPublicProposition = pathname.startsWith("/proposition/");
   const isWidgetApi = pathname.startsWith("/api/widget/");
+  const isMcpApi = pathname.startsWith("/api/mcp");
 
-  // Allow auth API routes, public proposition pages, and widget API
-  if (isAuthApi || isPublicProposition || isWidgetApi) return NextResponse.next();
+  // Allow auth API routes, public proposition pages, widget API, and MCP API
+  if (isAuthApi || isPublicProposition || isWidgetApi || isMcpApi) return NextResponse.next();
 
   // Auth.js v5 uses different cookie names for HTTPS vs HTTP.
   // getToken needs secureCookie=true in production so it reads the right cookie
