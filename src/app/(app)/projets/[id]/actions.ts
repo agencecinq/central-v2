@@ -257,6 +257,7 @@ export async function createPhase(
   joursPrevus: number,
   dateDebut: string | null,
   dateFin: string | null,
+  userId: number | null = null,
 ) {
   if (isNaN(joursPrevus) || joursPrevus < 0) {
     throw new Error("Nombre de jours invalide");
@@ -269,11 +270,13 @@ export async function createPhase(
       joursPrevus,
       dateDebut: dateDebut ? new Date(dateDebut) : null,
       dateFin: dateFin ? new Date(dateFin) : null,
+      userId,
     },
   });
 
   revalidatePath(`/projets/${projectId}`);
   revalidatePath("/projets/charge-de-travail");
+  revalidatePath("/projets/disponibilite-equipe");
 }
 
 export async function updatePhase(
@@ -284,6 +287,7 @@ export async function updatePhase(
     joursPrevus?: number;
     dateDebut?: string | null;
     dateFin?: string | null;
+    userId?: number | null;
   },
 ) {
   await prisma.projectAllocation.update({
@@ -297,11 +301,13 @@ export async function updatePhase(
       ...(data.dateFin !== undefined && {
         dateFin: data.dateFin ? new Date(data.dateFin) : null,
       }),
+      ...(data.userId !== undefined && { userId: data.userId }),
     },
   });
 
   revalidatePath(`/projets/${projectId}`);
   revalidatePath("/projets/charge-de-travail");
+  revalidatePath("/projets/disponibilite-equipe");
 }
 
 export async function deletePhase(phaseId: number, projectId: number) {

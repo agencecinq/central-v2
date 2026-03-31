@@ -65,7 +65,7 @@ export default async function ProjectDetailPage({
 
   if (!project) notFound();
 
-  const [users, clients, deals, rawPhases, metiers] = await Promise.all([
+  const [users, clients, deals, rawPhases, metiers, rawUserMetiers] = await Promise.all([
     prisma.user.findMany({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -81,10 +81,21 @@ export default async function ProjectDetailPage({
     }),
     prisma.projectAllocation.findMany({
       where: { projectId },
-      include: { metier: { select: { nom: true } } },
+      include: {
+        metier: { select: { nom: true } },
+        user: { select: { id: true, name: true } },
+      },
       orderBy: [{ dateDebut: "asc" }, { metierId: "asc" }],
     }),
     prisma.metier.findMany({ orderBy: { nom: "asc" } }),
+    prisma.userMetier.findMany({
+      where: { user: { role: { in: ["admin", "equipe"] } } },
+      select: {
+        userId: true,
+        metierId: true,
+        user: { select: { id: true, name: true } },
+      },
+    }),
   ]);
 
   const projectData = {
@@ -384,8 +395,15 @@ export default async function ProjectDetailPage({
           joursPrevus: Number(a.joursPrevus),
           dateDebut: a.dateDebut?.toISOString().slice(0, 10) ?? null,
           dateFin: a.dateFin?.toISOString().slice(0, 10) ?? null,
+          userId: a.userId,
+          userName: a.user?.name ?? null,
         }))}
         metiers={metiers.map((m) => ({ id: m.id, nom: m.nom }))}
+        userMetiers={rawUserMetiers.map((um) => ({
+          userId: um.userId,
+          metierId: um.metierId,
+          userName: um.user.name,
+        }))}
       />
 
       <WidgetIntegration

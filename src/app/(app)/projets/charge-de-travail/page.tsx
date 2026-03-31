@@ -1,16 +1,14 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import {
+  getNext12Weeks,
+  distributeWeekly,
+  type WeekData,
+} from "@/lib/planning-utils";
 import { PlanningView } from "./planning-view";
 
 // ─── Types ────────────────────────────────────────────────
-
-interface WeekData {
-  key: string; // "2026-03-09" (lundi)
-  label: string; // "10 mar"
-  monthLabel: string; // "mars 2026"
-  monday: Date;
-}
 
 interface ProjectCharge {
   projectId: number;
@@ -22,7 +20,7 @@ interface MetierRow {
   metierId: number;
   metierNom: string;
   nbPersonnes: number;
-  capaciteHebdo: number; // nbPersonnes × 5
+  capaciteHebdo: number;
   weeks: Record<
     string,
     { charge: number; dispo: number; projects: ProjectCharge[] }
@@ -32,96 +30,6 @@ interface MetierRow {
 interface SummaryRow {
   capaciteHebdo: number;
   weeks: Record<string, { charge: number; dispo: number }>;
-}
-
-// ─── Helpers ──────────────────────────────────────────────
-
-/** Retourne le lundi de la semaine d'une date */
-function getMonday(d: Date): Date {
-  const date = new Date(d);
-  const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day; // lundi = 1
-  date.setDate(date.getDate() + diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-/** Génère les 12 prochaines semaines à partir de cette semaine */
-function getNext12Weeks(): WeekData[] {
-  const today = new Date();
-  let monday = getMonday(today);
-  const weeks: WeekData[] = [];
-
-  for (let i = 0; i < 12; i++) {
-    const key = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
-    const label = monday.toLocaleDateString("fr-FR", {
-      day: "numeric",
-      month: "short",
-    });
-    const monthLabel = monday.toLocaleDateString("fr-FR", {
-      month: "long",
-      year: "numeric",
-    });
-    weeks.push({ key, label, monthLabel, monday: new Date(monday) });
-    monday.setDate(monday.getDate() + 7);
-  }
-
-  return weeks;
-}
-
-/**
- * Distribue joursPrevus linéairement sur les semaines couvertes par le projet.
- * Retourne une map weekKey → joursDansCetteSemaine
- */
-function distributeWeekly(
-  joursPrevus: number,
-  dateDebut: Date | null,
-  dateFin: Date | null,
-  weeks: WeekData[],
-): Record<string, number> {
-  const result: Record<string, number> = {};
-  if (joursPrevus <= 0) return result;
-
-  const firstWeekKey = weeks[0].key;
-  const lastWeekKey = weeks[weeks.length - 1].key;
-
-  // Bornes du projet en clés semaine (lundi)
-  let startKey = firstWeekKey;
-  let endKey = lastWeekKey;
-
-  if (dateDebut) {
-    const mon = getMonday(new Date(dateDebut));
-    startKey = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`;
-  }
-  if (dateFin) {
-    const mon = getMonday(new Date(dateFin));
-    endKey = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`;
-  }
-
-  // Semaines couvertes dans notre fenêtre de 12 semaines
-  const coveredWeeks = weeks.filter(
-    (w) => w.key >= startKey && w.key <= endKey,
-  );
-  if (coveredWeeks.length === 0) return result;
-
-  // Nombre total de semaines du projet (pas seulement celles visibles)
-  let totalProjectWeeks = 1;
-  if (dateDebut && dateFin) {
-    const sd = getMonday(new Date(dateDebut));
-    const ed = getMonday(new Date(dateFin));
-    const diffMs = ed.getTime() - sd.getTime();
-    totalProjectWeeks = Math.max(1, Math.round(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1);
-  } else {
-    totalProjectWeeks = coveredWeeks.length;
-  }
-
-  const joursParSemaine = joursPrevus / totalProjectWeeks;
-
-  for (const w of coveredWeeks) {
-    result[w.key] = joursParSemaine;
-  }
-
-  return result;
 }
 
 // ─── Data fetching ────────────────────────────────────────
@@ -275,20 +183,33 @@ export default async function ChargeDeTravailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/projets"
-          className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">
-            Disponibilité
-          </h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Vue hebdomadaire de la disponibilité par métier sur 12 semaines.
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/projets"
+            className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Disponibilité
+            </h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Vue hebdomadaire de la disponibilité par métier sur 12 semaines.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-1 rounded-lg border p-1">
+          <span className="px-3 py-1.5 text-sm rounded-md bg-accent text-accent-foreground font-medium">
+            Par métier
+          </span>
+          <Link
+            href="/projets/disponibilite-equipe"
+            className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Par personne
+          </Link>
         </div>
       </div>
 

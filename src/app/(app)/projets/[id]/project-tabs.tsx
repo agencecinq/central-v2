@@ -83,6 +83,14 @@ interface PhaseItem {
   joursPrevus: number;
   dateDebut: string | null;
   dateFin: string | null;
+  userId: number | null;
+  userName: string | null;
+}
+
+interface UserMetierOption {
+  userId: number;
+  metierId: number;
+  userName: string;
 }
 
 interface MetierOption {
@@ -157,6 +165,7 @@ export function ProjectTabs({
   users,
   phases,
   metiers,
+  userMetiers,
 }: {
   projectId: number;
   tasks: Task[];
@@ -165,6 +174,7 @@ export function ProjectTabs({
   users: UserOption[];
   phases: PhaseItem[];
   metiers: MetierOption[];
+  userMetiers: UserMetierOption[];
 }) {
   const depenses = transactions.filter((t) => t.type === "depense");
   const revenus = transactions.filter((t) => t.type === "revenu");
@@ -512,7 +522,7 @@ export function ProjectTabs({
         </TabsContent>
 
         <TabsContent value="planning" className="mt-4 space-y-4">
-          <PlanningTab projectId={projectId} tasks={tasks} users={users} phases={phases} metiers={metiers} />
+          <PlanningTab projectId={projectId} tasks={tasks} users={users} phases={phases} metiers={metiers} userMetiers={userMetiers} />
         </TabsContent>
       </Tabs>
 
@@ -555,12 +565,14 @@ function PlanningTab({
   users,
   phases,
   metiers,
+  userMetiers,
 }: {
   projectId: number;
   tasks: Task[];
   users: UserOption[];
   phases: PhaseItem[];
   metiers: MetierOption[];
+  userMetiers: UserMetierOption[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [addMetierId, setAddMetierId] = useState<string>("");
@@ -616,7 +628,14 @@ function PlanningTab({
     const metierId = parseInt(value);
     if (isNaN(metierId)) return;
     startTransition(async () => {
-      await updatePhase(phaseId, projectId, { metierId });
+      await updatePhase(phaseId, projectId, { metierId, userId: null });
+    });
+  }
+
+  function handleUserChange(phaseId: number, value: string | null) {
+    const userId = value && value !== "none" ? parseInt(value) : null;
+    startTransition(async () => {
+      await updatePhase(phaseId, projectId, { userId });
     });
   }
 
@@ -663,6 +682,7 @@ function PlanningTab({
                   <TableHeader>
                     <TableRow>
                       <TableHead>Métier</TableHead>
+                      <TableHead>Personne</TableHead>
                       <TableHead>Début</TableHead>
                       <TableHead>Fin</TableHead>
                       <TableHead className="text-right">Jours</TableHead>
@@ -686,6 +706,26 @@ function PlanningTab({
                                   {m.nom}
                                 </SelectItem>
                               ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={p.userId ? String(p.userId) : "none"}
+                            onValueChange={(v) => handleUserChange(p.id, v)}
+                          >
+                            <SelectTrigger className="h-7 w-36">
+                              {p.userName ?? "Non assigné"}
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Non assigné</SelectItem>
+                              {userMetiers
+                                .filter((um) => um.metierId === p.metierId)
+                                .map((um) => (
+                                  <SelectItem key={um.userId} value={String(um.userId)}>
+                                    {um.userName}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                         </TableCell>
