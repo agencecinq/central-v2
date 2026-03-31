@@ -634,22 +634,6 @@ export function AvailabilityGrid({
                         if (cell.type === "block") {
                           const color = projectColorMap.get(cell.projectId!);
                           const jours = cell.colspan * 0.5;
-                          const label =
-                            cell.colspan >= 4
-                              ? `${cell.projectTitre} (${jours}j)`
-                              : cell.colspan >= 2
-                                ? cell.projectTitre!
-                                    .split(" ")
-                                    .map((w) => w[0])
-                                    .join("")
-                                    .slice(0, 4)
-                                    .toUpperCase()
-                                : cell.projectTitre!
-                                    .split(" ")
-                                    .map((w) => w[0])
-                                    .join("")
-                                    .slice(0, 2)
-                                    .toUpperCase();
 
                           return (
                             <td
@@ -666,13 +650,12 @@ export function AvailabilityGrid({
                                 title={`${cell.projectTitre} — ${jours}j${cell.isOverPlan ? " ⚠ Dépassement" : ""}`}
                                 onMouseDown={(e) => {
                                   e.preventDefault();
-                                  // Click on block = remove first half-day (to start removing)
                                   handleMouseDown(person.id, cell.date, cell.period);
                                 }}
                                 onMouseEnter={() => handleMouseEnter(person.id, cell.date, cell.period)}
                               >
-                                <span className="text-[9px] font-medium truncate px-0.5">
-                                  {label}
+                                <span className="text-[9px] font-medium whitespace-nowrap px-0.5">
+                                  {cell.projectTitre}{cell.colspan >= 4 ? ` (${jours}j)` : ""}
                                 </span>
                               </div>
                             </td>

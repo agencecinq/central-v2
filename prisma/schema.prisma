@@ -180,6 +180,7 @@ model Project {
   userbackProjectId String?   @map("userback_project_id") @db.VarChar(255)
   budgetTotal       Decimal   @default(0) @map("budget_total") @db.Decimal(15, 2)
   budgetConsomme    Decimal   @default(0) @map("budget_consomme") @db.Decimal(15, 2)
+  joursVendus       Decimal?  @map("jours_vendus") @db.Decimal(8, 2)
   deadline          DateTime? @map("deadline") @db.Date
   dateDebut         DateTime? @map("date_debut") @db.Date
   dateFin           DateTime? @map("date_fin") @db.Date

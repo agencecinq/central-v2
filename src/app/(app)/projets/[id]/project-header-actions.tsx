@@ -16,6 +16,7 @@ interface ProjectData {
   chefProjetId: number | null;
   dealId: number | null;
   budgetTotal: number;
+  joursVendus: number | null;
   dateDebut: string | null;
   deadline: string | null;
   githubUrl: string | null;

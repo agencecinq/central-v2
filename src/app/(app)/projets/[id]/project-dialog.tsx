@@ -29,6 +29,7 @@ interface ProjectData {
   chefProjetId: number | null;
   dealId: number | null;
   budgetTotal: number;
+  joursVendus: number | null;
   dateDebut: string | null;
   deadline: string | null;
   githubUrl: string | null;
@@ -238,6 +239,18 @@ export function ProjectDialog({
                 min={0}
                 step="0.01"
                 defaultValue={project.budgetTotal}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="joursVendus">Jours vendus</Label>
+              <Input
+                id="joursVendus"
+                name="joursVendus"
+                type="number"
+                min={0}
+                step="0.5"
+                defaultValue={project.joursVendus ?? ""}
+                placeholder="Ex: 25"
               />
             </div>
           </div>

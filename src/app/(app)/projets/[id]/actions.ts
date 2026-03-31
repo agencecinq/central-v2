@@ -101,6 +101,9 @@ export async function updateProject(projectId: number, formData: FormData) {
       deadline: formData.get("deadline")
         ? new Date(formData.get("deadline") as string)
         : null,
+      joursVendus: formData.get("joursVendus")
+        ? parseFloat(formData.get("joursVendus") as string)
+        : null,
       githubUrl: (formData.get("githubUrl") as string)?.trim() || null,
       figmaUrl: (formData.get("figmaUrl") as string)?.trim() || null,
     },
@@ -108,6 +111,7 @@ export async function updateProject(projectId: number, formData: FormData) {
 
   revalidatePath(`/projets/${projectId}`);
   revalidatePath("/projets");
+  revalidatePath("/projets/disponibilite-equipe");
 }
 
 // ─── Tasks ───────────────────────────────────────────────

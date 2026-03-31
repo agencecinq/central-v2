@@ -107,6 +107,7 @@ export default async function ProjectDetailPage({
     chefProjetId: project.chefProjetId,
     dealId: project.dealId,
     budgetTotal: Number(project.budgetTotal),
+    joursVendus: project.joursVendus ? Number(project.joursVendus) : null,
     dateDebut: project.dateDebut?.toISOString() ?? null,
     deadline: project.deadline?.toISOString() ?? null,
     githubUrl: project.githubUrl,

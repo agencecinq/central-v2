@@ -69,22 +69,15 @@ async function getData() {
   // Active projects (for assignment dropdown)
   const projects = await prisma.project.findMany({
     where: { statut: { in: ["en_cours", "en_attente"] } },
-    select: { id: true, titre: true },
+    select: { id: true, titre: true, joursVendus: true },
     orderBy: { titre: "asc" },
   });
 
-  // ─── Jours vendus par projet (somme des allocations) ───
-  const allocations = await prisma.projectAllocation.findMany({
-    where: {
-      projectId: { in: projects.map((p) => p.id) },
-    },
-    select: { projectId: true, joursPrevus: true },
-  });
-
+  // ─── Jours vendus par projet (champ dédié sur le projet) ───
   const joursVendusMap: Record<number, number> = {};
-  for (const a of allocations) {
-    joursVendusMap[a.projectId] =
-      (joursVendusMap[a.projectId] ?? 0) + Number(a.joursPrevus);
+  for (const p of projects) {
+    const jv = Number(p.joursVendus ?? 0);
+    if (jv > 0) joursVendusMap[p.id] = jv;
   }
 
   // ─── Jours planifiés par projet (ALL half-day slots, pas juste 12 semaines) ───
