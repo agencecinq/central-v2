@@ -83,7 +83,7 @@ export default async function ProjetsPage() {
           </p>
         </div>
         <Link
-          href="/projets/charge-de-travail"
+          href="/projets/disponibilite-equipe"
           className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
         >
           <BarChart3 className="h-4 w-4" />
