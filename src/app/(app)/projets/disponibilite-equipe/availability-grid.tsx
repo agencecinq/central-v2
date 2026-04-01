@@ -16,8 +16,9 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
-  Eraser,
   Paintbrush,
+  GripVertical,
+  X,
 } from "lucide-react";
 import { assignSlot, removeSlot } from "./actions";
 import { toast } from "sonner";
@@ -94,6 +95,45 @@ const PROJECT_COLORS = [
 
 type ColorInfo = (typeof PROJECT_COLORS)[number];
 
+// ─── Helpers ─────────────────────────────────────────────
+
+/** Build ordered list of all slot positions for visible weeks */
+function buildSlotPositions(visibleWeeks: WeekInfo[]) {
+  const positions: { date: string; period: "AM" | "PM" }[] = [];
+  for (const w of visibleWeeks) {
+    for (const d of w.days) {
+      positions.push({ date: d.date, period: "AM" });
+      positions.push({ date: d.date, period: "PM" });
+    }
+  }
+  return positions;
+}
+
+function slotKey(date: string, period: "AM" | "PM") {
+  return `${date}_${period}`;
+}
+
+// ─── Merged cell type ────────────────────────────────────
+
+interface MergedBlock {
+  type: "block";
+  startIdx: number;
+  colspan: number;
+  projectId: number;
+  projectTitre: string;
+  slots: { date: string; period: "AM" | "PM" }[];
+  isOverPlan: boolean;
+}
+
+interface EmptyCell {
+  type: "empty";
+  idx: number;
+  date: string;
+  period: "AM" | "PM";
+}
+
+type GridCell = MergedBlock | EmptyCell;
+
 // ─── Component ───────────────────────────────────────────
 
 export function AvailabilityGrid({
@@ -106,23 +146,15 @@ export function AvailabilityGrid({
   const [weekOffset, setWeekOffset] = useState(0);
   const [isPending, startTransition] = useTransition();
 
-  // ─── Active brush: selected project or eraser ──────────
+  // ─── Active project selection ─────────────────────────
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
-  const [eraserMode, setEraserMode] = useState(false);
-
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
   function selectProject(id: number) {
-    setEraserMode(false);
     setActiveProjectId((prev) => (prev === id ? null : id));
   }
 
-  function toggleEraser() {
-    setActiveProjectId(null);
-    setEraserMode((prev) => !prev);
-  }
-
-  // ─── Optimistic state ──────────────────────────────────
+  // ─── Optimistic slots (source of truth for UI) ────────
   const [optimisticSlots, setOptimisticSlots] = useState<
     Record<number, Record<string, SlotData>>
   >(() => {
@@ -131,28 +163,42 @@ export function AvailabilityGrid({
     return map;
   });
 
-  const [statsDelta, setStatsDelta] = useState<Record<number, number>>({});
-
   const VISIBLE_WEEKS = 4;
   const visibleWeeks = weeks.slice(weekOffset, weekOffset + VISIBLE_WEEKS);
+  const slotPositions = useMemo(() => buildSlotPositions(visibleWeeks), [visibleWeeks]);
 
-  // Live project stats
+  // ─── Compute live stats from optimisticSlots ──────────
   const liveProjectStats = useMemo(() => {
+    // Count all planned half-days per project from optimistic state
+    const planCounts: Record<number, number> = {};
+    for (const userSlots of Object.values(optimisticSlots)) {
+      for (const slot of Object.values(userSlots)) {
+        planCounts[slot.projectId] = (planCounts[slot.projectId] ?? 0) + 0.5;
+      }
+    }
+
     const stats: Record<number, ProjectStats> = {};
+    // Start from initial stats to get vendus values
     for (const [pidStr, base] of Object.entries(initialProjectStats)) {
       const pid = Number(pidStr);
-      const delta = statsDelta[pid] ?? 0;
-      const planifies = Math.round((base.planifies + delta) * 10) / 10;
+      const planifies = planCounts[pid] ?? 0;
       stats[pid] = {
         vendus: base.vendus,
         planifies,
         restants: Math.round((base.vendus - planifies) * 10) / 10,
       };
     }
+    // Also handle projects that have planned slots but no initial stats
+    for (const [pidStr, count] of Object.entries(planCounts)) {
+      const pid = Number(pidStr);
+      if (!stats[pid]) {
+        stats[pid] = { vendus: 0, planifies: count, restants: -count };
+      }
+    }
     return stats;
-  }, [initialProjectStats, statsDelta]);
+  }, [optimisticSlots, initialProjectStats]);
 
-  // Project color map
+  // ─── Color map ────────────────────────────────────────
   const projectColorMap = useMemo(() => {
     const map = new Map<number, ColorInfo>();
     const allProjectIds = new Set<number>();
@@ -170,34 +216,18 @@ export function AvailabilityGrid({
     return map;
   }, [people, projects]);
 
-  // ─── Painting (drag) ──────────────────────────────────
-  const isPainting = useRef(false);
-  const paintUserId = useRef<number | null>(null);
-
+  // ─── Server mutations ─────────────────────────────────
   const doAssign = useCallback(
     (userId: number, date: string, period: "AM" | "PM", project: ProjectOption) => {
-      const slotKey = `${date}_${period}`;
-      if (optimisticSlots[userId]?.[slotKey]?.projectId === project.id) return;
-
-      // If replacing another project, adjust delta
-      const existing = optimisticSlots[userId]?.[slotKey];
-      if (existing) {
-        setStatsDelta((prev) => ({
-          ...prev,
-          [existing.projectId]: (prev[existing.projectId] ?? 0) - 0.5,
-        }));
-      }
+      const key = slotKey(date, period);
+      if (optimisticSlots[userId]?.[key]?.projectId === project.id) return;
 
       setOptimisticSlots((prev) => ({
         ...prev,
         [userId]: {
           ...prev[userId],
-          [slotKey]: { projectId: project.id, projectTitre: project.titre },
+          [key]: { projectId: project.id, projectTitre: project.titre },
         },
-      }));
-      setStatsDelta((prev) => ({
-        ...prev,
-        [project.id]: (prev[project.id] ?? 0) + 0.5,
       }));
 
       startTransition(async () => {
@@ -208,24 +238,19 @@ export function AvailabilityGrid({
         }
       });
     },
-    [optimisticSlots, startTransition],
+    [optimisticSlots],
   );
 
   const doRemove = useCallback(
     (userId: number, date: string, period: "AM" | "PM") => {
-      const slotKey = `${date}_${period}`;
-      const old = optimisticSlots[userId]?.[slotKey];
-      if (!old) return;
+      const key = slotKey(date, period);
+      if (!optimisticSlots[userId]?.[key]) return;
 
       setOptimisticSlots((prev) => {
         const copy = { ...prev, [userId]: { ...prev[userId] } };
-        delete copy[userId][slotKey];
+        delete copy[userId][key];
         return copy;
       });
-      setStatsDelta((prev) => ({
-        ...prev,
-        [old.projectId]: (prev[old.projectId] ?? 0) - 0.5,
-      }));
 
       startTransition(async () => {
         try {
@@ -235,104 +260,180 @@ export function AvailabilityGrid({
         }
       });
     },
-    [optimisticSlots, startTransition],
+    [optimisticSlots],
   );
 
-  function handleCellAction(userId: number, date: string, period: "AM" | "PM") {
-    const slotKey = `${date}_${period}`;
-    const existing = optimisticSlots[userId]?.[slotKey];
+  // ─── Click on empty cell: place active project ────────
+  function handleEmptyCellClick(userId: number, date: string, period: "AM" | "PM") {
+    if (!activeProject) return;
+    doAssign(userId, date, period, activeProject);
+  }
 
-    if (eraserMode) {
-      if (existing) doRemove(userId, date, period);
-      return;
+  // ─── Click on block: delete it ────────────────────────
+  function handleBlockDelete(userId: number, slots: { date: string; period: "AM" | "PM" }[]) {
+    for (const s of slots) {
+      doRemove(userId, s.date, s.period);
     }
+  }
 
-    if (activeProject) {
-      if (existing?.projectId === activeProject.id) {
-        // Toggle off if same project
-        doRemove(userId, date, period);
-      } else {
-        doAssign(userId, date, period, activeProject);
+  // ─── Resize logic ─────────────────────────────────────
+  const resizeState = useRef<{
+    userId: number;
+    projectId: number;
+    projectTitre: string;
+    side: "left" | "right";
+    startIdx: number;
+    endIdx: number; // inclusive
+    originalStartIdx: number;
+    originalEndIdx: number;
+    startX: number;
+  } | null>(null);
+
+  const [resizePreview, setResizePreview] = useState<{
+    userId: number;
+    startIdx: number;
+    endIdx: number;
+  } | null>(null);
+
+  const cellRefs = useRef<Map<string, HTMLElement>>(new Map());
+
+  function registerCellRef(userId: number, idx: number, el: HTMLElement | null) {
+    const key = `${userId}_${idx}`;
+    if (el) {
+      cellRefs.current.set(key, el);
+    } else {
+      cellRefs.current.delete(key);
+    }
+  }
+
+  /** Get slot index from a mouse X position within a person row */
+  function getSlotIdxFromX(userId: number, clientX: number): number {
+    let closest = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < slotPositions.length; i++) {
+      const el = cellRefs.current.get(`${userId}_${i}`);
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      const center = rect.left + rect.width / 2;
+      const dist = Math.abs(clientX - center);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = i;
       }
-      return;
     }
-
-    // No tool selected: if occupied, remove
-    if (existing) {
-      doRemove(userId, date, period);
-    }
+    return closest;
   }
 
-  function handleMouseDown(userId: number, date: string, period: "AM" | "PM") {
-    if (!activeProject && !eraserMode) return;
-    isPainting.current = true;
-    paintUserId.current = userId;
-    handleCellAction(userId, date, period);
-  }
-
-  function handleMouseEnter(userId: number, date: string, period: "AM" | "PM") {
-    if (!isPainting.current || paintUserId.current !== userId) return;
-    handleCellAction(userId, date, period);
+  function handleResizeStart(
+    e: React.MouseEvent,
+    userId: number,
+    block: MergedBlock,
+    side: "left" | "right",
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    const endIdx = block.startIdx + block.colspan - 1;
+    resizeState.current = {
+      userId,
+      projectId: block.projectId,
+      projectTitre: block.projectTitre,
+      side,
+      startIdx: block.startIdx,
+      endIdx,
+      originalStartIdx: block.startIdx,
+      originalEndIdx: endIdx,
+      startX: e.clientX,
+    };
+    setResizePreview({ userId, startIdx: block.startIdx, endIdx });
   }
 
   useEffect(() => {
-    function stop() {
-      isPainting.current = false;
-      paintUserId.current = null;
-    }
-    document.addEventListener("mouseup", stop);
-    return () => document.removeEventListener("mouseup", stop);
-  }, []);
+    function handleMouseMove(e: MouseEvent) {
+      const rs = resizeState.current;
+      if (!rs) return;
 
-  // ─── Compute merged blocks for a person row ───────────
-  // Returns an array of cells: either a merged block or an empty slot
-  function getMergedCells(person: Person) {
-    const allSlotKeys: { date: string; period: "AM" | "PM"; weekIdx: number; dayIdx: number; halfIdx: number }[] = [];
-    for (let wi = 0; wi < visibleWeeks.length; wi++) {
-      const w = visibleWeeks[wi];
-      for (let di = 0; di < w.days.length; di++) {
-        const d = w.days[di];
-        allSlotKeys.push({ date: d.date, period: "AM", weekIdx: wi, dayIdx: di, halfIdx: 0 });
-        allSlotKeys.push({ date: d.date, period: "PM", weekIdx: wi, dayIdx: di, halfIdx: 1 });
+      const newIdx = getSlotIdxFromX(rs.userId, e.clientX);
+
+      let newStart = rs.originalStartIdx;
+      let newEnd = rs.originalEndIdx;
+
+      if (rs.side === "right") {
+        newEnd = Math.max(rs.originalStartIdx, newIdx);
+      } else {
+        newStart = Math.min(rs.originalEndIdx, newIdx);
       }
+
+      resizeState.current!.startIdx = newStart;
+      resizeState.current!.endIdx = newEnd;
+      setResizePreview({ userId: rs.userId, startIdx: newStart, endIdx: newEnd });
     }
 
-    const cells: {
-      type: "empty" | "block";
-      slotKey: string;
-      date: string;
-      period: "AM" | "PM";
-      colspan: number;
-      projectId?: number;
-      projectTitre?: string;
-      isOverPlan?: boolean;
-    }[] = [];
+    function handleMouseUp() {
+      const rs = resizeState.current;
+      if (!rs) return;
+
+      const { userId, projectId, projectTitre, originalStartIdx, originalEndIdx, startIdx, endIdx } = rs;
+
+      // Remove slots that are no longer in range
+      for (let i = originalStartIdx; i <= originalEndIdx; i++) {
+        if (i < startIdx || i > endIdx) {
+          const pos = slotPositions[i];
+          if (pos) doRemove(userId, pos.date, pos.period);
+        }
+      }
+
+      // Add new slots that were added by expanding
+      for (let i = startIdx; i <= endIdx; i++) {
+        if (i < originalStartIdx || i > originalEndIdx) {
+          const pos = slotPositions[i];
+          if (pos) {
+            // Check if slot is free
+            const key = slotKey(pos.date, pos.period);
+            const existing = optimisticSlots[userId]?.[key];
+            if (!existing) {
+              doAssign(userId, pos.date, pos.period, { id: projectId, titre: projectTitre });
+            }
+          }
+        }
+      }
+
+      resizeState.current = null;
+      setResizePreview(null);
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [slotPositions, optimisticSlots, doAssign, doRemove]);
+
+  // ─── Compute merged blocks ────────────────────────────
+  function getMergedCells(personId: number): GridCell[] {
+    const userSlots = optimisticSlots[personId] ?? {};
+    const cells: GridCell[] = [];
 
     let i = 0;
-    while (i < allSlotKeys.length) {
-      const s = allSlotKeys[i];
-      const slotKey = `${s.date}_${s.period}`;
-      const slot = optimisticSlots[person.id]?.[slotKey];
+    while (i < slotPositions.length) {
+      const pos = slotPositions[i];
+      const key = slotKey(pos.date, pos.period);
+      const slot = userSlots[key];
 
       if (!slot) {
-        cells.push({
-          type: "empty",
-          slotKey,
-          date: s.date,
-          period: s.period,
-          colspan: 1,
-        });
+        cells.push({ type: "empty", idx: i, date: pos.date, period: pos.period });
         i++;
       } else {
-        // Merge consecutive slots with the same project
-        let span = 1;
+        // Merge consecutive same-project slots
+        const startIdx = i;
+        const blockSlots: { date: string; period: "AM" | "PM" }[] = [{ date: pos.date, period: pos.period }];
         let j = i + 1;
-        while (j < allSlotKeys.length) {
-          const next = allSlotKeys[j];
-          const nextKey = `${next.date}_${next.period}`;
-          const nextSlot = optimisticSlots[person.id]?.[nextKey];
+        while (j < slotPositions.length) {
+          const nextPos = slotPositions[j];
+          const nextKey = slotKey(nextPos.date, nextPos.period);
+          const nextSlot = userSlots[nextKey];
           if (nextSlot?.projectId === slot.projectId) {
-            span++;
+            blockSlots.push({ date: nextPos.date, period: nextPos.period });
             j++;
           } else {
             break;
@@ -343,15 +444,13 @@ export function AvailabilityGrid({
 
         cells.push({
           type: "block",
-          slotKey,
-          date: s.date,
-          period: s.period,
-          colspan: span,
+          startIdx,
+          colspan: j - i,
           projectId: slot.projectId,
           projectTitre: slot.projectTitre,
+          slots: blockSlots,
           isOverPlan,
         });
-
         i = j;
       }
     }
@@ -359,20 +458,17 @@ export function AvailabilityGrid({
     return cells;
   }
 
-  // Count occupied per person for visible weeks
+  // ─── Count occupied per person ────────────────────────
   function countOccupied(userId: number): { used: number; total: number } {
     const userSlots = optimisticSlots[userId] ?? {};
     let used = 0;
-    for (const week of visibleWeeks) {
-      for (const day of week.days) {
-        if (userSlots[`${day.date}_AM`]) used++;
-        if (userSlots[`${day.date}_PM`]) used++;
-      }
+    for (const pos of slotPositions) {
+      if (userSlots[slotKey(pos.date, pos.period)]) used++;
     }
-    return { used, total: visibleWeeks.length * 10 };
+    return { used, total: slotPositions.length };
   }
 
-  // Projects with stats
+  // ─── Projects with stats ──────────────────────────────
   const projectsWithStats = projects
     .map((p) => ({
       ...p,
@@ -383,9 +479,7 @@ export function AvailabilityGrid({
 
   const overPlanProjects = projectsWithStats.filter((p) => p.stats.restants < 0);
 
-  // Cursor style
-  const cursorClass =
-    activeProject || eraserMode ? "cursor-crosshair" : "cursor-default";
+  const cursorClass = activeProject ? "cursor-cell" : "cursor-default";
 
   return (
     <div className="space-y-4">
@@ -414,24 +508,19 @@ export function AvailabilityGrid({
         </div>
       )}
 
-      {/* Toolbar: project selector + eraser */}
+      {/* Toolbar: project selector */}
       <Card>
         <CardContent className="p-3">
           <div className="flex items-center gap-2 mb-2">
             <Paintbrush className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">
               {activeProject
-                ? `Pinceau : ${activeProject.titre}`
-                : eraserMode
-                  ? "Mode gomme"
-                  : "Sélectionnez un projet pour commencer à planifier"}
+                ? `Projet sélectionné : ${activeProject.titre}`
+                : "Sélectionnez un projet puis cliquez sur les cases pour planifier"}
             </span>
-            {(activeProject || eraserMode) && (
+            {activeProject && (
               <button
-                onClick={() => {
-                  setActiveProjectId(null);
-                  setEraserMode(false);
-                }}
+                onClick={() => setActiveProjectId(null)}
                 className="ml-auto text-xs text-muted-foreground hover:text-foreground border rounded px-2 py-0.5"
               >
                 Désélectionner
@@ -439,19 +528,6 @@ export function AvailabilityGrid({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {/* Eraser */}
-            <button
-              onClick={toggleEraser}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium border transition-all ${
-                eraserMode
-                  ? "bg-foreground text-background border-foreground ring-2 ring-foreground/30"
-                  : "bg-muted text-muted-foreground hover:bg-accent border-border"
-              }`}
-            >
-              <Eraser className="h-3 w-3" />
-              Gomme
-            </button>
-            {/* Project buttons */}
             {projects.map((p) => {
               const color = projectColorMap.get(p.id);
               const isActive = activeProjectId === p.id;
@@ -593,14 +669,10 @@ export function AvailabilityGrid({
                   <th className="sticky left-0 z-20 bg-muted/20 px-3 py-0.5 border-r" />
                   {visibleWeeks.map((w) =>
                     w.days.map((d) => (
-                      <>
-                        <th key={`${d.date}_AM_h`} className="px-0.5 py-0.5 text-center text-[10px] text-muted-foreground/60 font-normal min-w-[32px]">
-                          AM
-                        </th>
-                        <th key={`${d.date}_PM_h`} className="px-0.5 py-0.5 text-center text-[10px] text-muted-foreground/60 font-normal min-w-[32px] border-r">
-                          PM
-                        </th>
-                      </>
+                      <th key={`${d.date}_AM_h`} colSpan={2} className="px-0.5 py-0.5 text-center text-[10px] text-muted-foreground/60 font-normal border-r">
+                        <span className="inline-block w-1/2">AM</span>
+                        <span className="inline-block w-1/2">PM</span>
+                      </th>
                     )),
                   )}
                 </tr>
@@ -609,7 +681,7 @@ export function AvailabilityGrid({
                 {people.map((person) => {
                   const { used, total } = countOccupied(person.id);
                   const ratio = total > 0 ? used / total : 0;
-                  const mergedCells = getMergedCells(person);
+                  const mergedCells = getMergedCells(person.id);
 
                   return (
                     <tr key={person.id} className="border-b hover:bg-muted/10 transition-colors">
@@ -632,73 +704,43 @@ export function AvailabilityGrid({
                       </td>
                       {mergedCells.map((cell) => {
                         if (cell.type === "block") {
-                          const color = projectColorMap.get(cell.projectId!);
-                          const jours = cell.colspan * 0.5;
-
                           return (
-                            <td
-                              key={cell.slotKey}
-                              colSpan={cell.colspan}
-                              className="px-0 py-0 text-center"
-                            >
-                              <div
-                                className={`group h-8 flex items-center justify-center border transition-colors ${
-                                  color?.classes ?? "bg-gray-200"
-                                } ${cell.isOverPlan ? "ring-1 ring-red-500 ring-inset" : ""} ${
-                                  cell.colspan > 1 ? "rounded-sm mx-px" : ""
-                                }`}
-                                title={`${cell.projectTitre} — ${jours}j${cell.isOverPlan ? " ⚠ Dépassement" : ""}`}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  handleMouseDown(person.id, cell.date, cell.period);
-                                }}
-                                onMouseEnter={() => handleMouseEnter(person.id, cell.date, cell.period)}
-                              >
-                                <span className="text-[9px] font-medium truncate px-0.5">
-                                  {cell.colspan >= 4
-                                    ? `${cell.projectTitre} (${jours}j)`
-                                    : cell.colspan >= 2
-                                      ? cell.projectTitre!
-                                          .split(" ")
-                                          .map((w) => w[0])
-                                          .join("")
-                                          .slice(0, 4)
-                                          .toUpperCase()
-                                      : cell.projectTitre!
-                                          .split(" ")
-                                          .map((w) => w[0])
-                                          .join("")
-                                          .slice(0, 2)
-                                          .toUpperCase()}
-                                </span>
-                              </div>
-                            </td>
+                            <BlockCell
+                              key={`block_${person.id}_${cell.startIdx}`}
+                              cell={cell}
+                              personId={person.id}
+                              color={projectColorMap.get(cell.projectId)}
+                              resizePreview={resizePreview}
+                              slotPositions={slotPositions}
+                              onResizeStart={(e, side) => handleResizeStart(e, person.id, cell, side)}
+                              onDelete={() => handleBlockDelete(person.id, cell.slots)}
+                              registerCellRef={registerCellRef}
+                            />
                           );
                         }
 
                         // Empty cell
+                        const isPreviewTarget =
+                          resizePreview &&
+                          resizePreview.userId === person.id &&
+                          cell.idx >= resizePreview.startIdx &&
+                          cell.idx <= resizePreview.endIdx;
+
                         return (
-                          <td key={cell.slotKey} className={`px-0 py-0 text-center ${cell.period === "PM" ? "border-r" : ""}`}>
+                          <td
+                            key={`empty_${person.id}_${cell.idx}`}
+                            ref={(el) => registerCellRef(person.id, cell.idx, el)}
+                            className={`px-0 py-0 text-center ${cell.period === "PM" ? "border-r" : ""}`}
+                          >
                             <div
                               className={`h-8 transition-colors border border-transparent ${
-                                activeProject
-                                  ? "hover:border-primary/40"
-                                  : eraserMode
-                                    ? ""
+                                isPreviewTarget
+                                  ? "bg-primary/20 border-primary/40"
+                                  : activeProject
+                                    ? "hover:bg-primary/10 hover:border-primary/30"
                                     : "hover:bg-accent/30"
                               }`}
-                              style={
-                                activeProject
-                                  ? {
-                                      backgroundColor: `${projectColorMap.get(activeProject.id)?.hex ?? "#e5e7eb"}40`,
-                                    }
-                                  : undefined
-                              }
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                handleMouseDown(person.id, cell.date, cell.period);
-                              }}
-                              onMouseEnter={() => handleMouseEnter(person.id, cell.date, cell.period)}
+                              onClick={() => handleEmptyCellClick(person.id, cell.date, cell.period)}
                             />
                           </td>
                         );
@@ -712,12 +754,116 @@ export function AvailabilityGrid({
         </CardContent>
       </Card>
 
+      {/* Resize hint */}
+      {resizePreview && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-foreground text-background px-3 py-1.5 rounded-md text-sm shadow-lg z-50">
+          Relâchez pour confirmer le redimensionnement
+        </div>
+      )}
+
       {isPending && (
         <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm shadow-lg animate-pulse">
           Enregistrement…
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Block Cell Component ───────────────────────────────
+
+function BlockCell({
+  cell,
+  personId,
+  color,
+  resizePreview,
+  slotPositions,
+  onResizeStart,
+  onDelete,
+  registerCellRef,
+}: {
+  cell: MergedBlock;
+  personId: number;
+  color: ColorInfo | undefined;
+  resizePreview: { userId: number; startIdx: number; endIdx: number } | null;
+  slotPositions: { date: string; period: "AM" | "PM" }[];
+  onResizeStart: (e: React.MouseEvent, side: "left" | "right") => void;
+  onDelete: () => void;
+  registerCellRef: (userId: number, idx: number, el: HTMLElement | null) => void;
+}) {
+  const jours = cell.colspan * 0.5;
+  const label =
+    cell.colspan >= 4
+      ? `${cell.projectTitre} (${jours}j)`
+      : cell.colspan >= 2
+        ? cell.projectTitre
+            .split(" ")
+            .map((w) => w[0])
+            .join("")
+            .slice(0, 4)
+            .toUpperCase()
+        : cell.projectTitre
+            .split(" ")
+            .map((w) => w[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase();
+
+  // Check if last slot in block is PM (for border-right)
+  const lastPos = slotPositions[cell.startIdx + cell.colspan - 1];
+  const needsBorderR = lastPos?.period === "PM";
+
+  return (
+    <td
+      ref={(el) => {
+        // Register each slot index within this merged block
+        for (let i = 0; i < cell.colspan; i++) {
+          registerCellRef(personId, cell.startIdx + i, el);
+        }
+      }}
+      colSpan={cell.colspan}
+      className={`px-0 py-0 text-center ${needsBorderR ? "border-r" : ""}`}
+    >
+      <div
+        className={`group relative h-8 flex items-center justify-center border transition-colors ${
+          color?.classes ?? "bg-gray-200"
+        } ${cell.isOverPlan ? "ring-1 ring-red-500 ring-inset" : ""} ${
+          cell.colspan > 1 ? "rounded-sm mx-px" : "rounded-sm"
+        }`}
+        title={`${cell.projectTitre} — ${jours}j${cell.isOverPlan ? " ⚠ Dépassement" : ""}`}
+      >
+        {/* Left resize handle */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          onMouseDown={(e) => onResizeStart(e, "left")}
+        >
+          <div className="w-0.5 h-4 bg-current opacity-40 rounded-full" />
+        </div>
+
+        {/* Label */}
+        <span className="text-[9px] font-medium truncate px-2">{label}</span>
+
+        {/* Delete button */}
+        <button
+          className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-sm hover:bg-red-600"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          title="Supprimer"
+        >
+          <X className="h-2.5 w-2.5" />
+        </button>
+
+        {/* Right resize handle */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          onMouseDown={(e) => onResizeStart(e, "right")}
+        >
+          <div className="w-0.5 h-4 bg-current opacity-40 rounded-full" />
+        </div>
+      </div>
+    </td>
   );
 }
 
