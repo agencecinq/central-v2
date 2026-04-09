@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: SYSTEM_PROMPT,
         messages: [
           {
@@ -189,6 +189,16 @@ export async function POST(request: Request) {
     }
 
     const result = await response.json();
+
+    // Check if response was truncated due to max_tokens
+    if (result.stop_reason === "max_tokens") {
+      console.error("Réponse IA tronquée (max_tokens atteint)");
+      return NextResponse.json(
+        { error: "La proposition générée était trop longue. Réessayez avec un brief plus concis." },
+        { status: 502 },
+      );
+    }
+
     let content = result.content?.[0]?.text ?? "";
 
     // Clean potential markdown wrappers and stray text
