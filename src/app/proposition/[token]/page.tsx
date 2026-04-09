@@ -135,10 +135,11 @@ export default async function PropositionPage({
     tjmGestionProjet: Number(prop.tjmGestionProjet),
   });
 
-  const totalSemaines = prop.planningEtapes.reduce(
+  const totalSemainesRaw = prop.planningEtapes.reduce(
     (sum, e) => sum + (e.nombreSemaines ? Number(e.nombreSemaines) : 0),
     0,
   );
+  const totalSemaines = Math.ceil(totalSemainesRaw);
 
   const dateDebut = prop.dateDebutProjet
     ? new Date(prop.dateDebutProjet)
@@ -408,8 +409,8 @@ export default async function PropositionPage({
                 <p className="text-sm text-muted-foreground">
                   {t(langue, "date_debut")} :{" "}
                   {formatDateLong(dateDebut, langue)} ·{" "}
-                  {t(langue, "duree_totale")} : {totalSemaines}{" "}
-                  {totalSemaines <= 1
+                  {t(langue, "duree_totale")} : {totalSemainesRaw}{" "}
+                  {totalSemainesRaw <= 1
                     ? t(langue, "semaine")
                     : t(langue, "semaines")}{" "}
                   ({t(langue, "jusqu_au")}{" "}
@@ -456,9 +457,10 @@ export default async function PropositionPage({
                       {(() => {
                         let cumulWeeks = 0;
                         return prop.planningEtapes.map((etape, i) => {
-                          const weeks = etape.nombreSemaines
+                          const weeksRaw = etape.nombreSemaines
                             ? Number(etape.nombreSemaines)
                             : 0;
+                          const weeks = Math.round(weeksRaw) || (weeksRaw > 0 ? 1 : 0);
                           const startCol = cumulWeeks + 1;
                           cumulWeeks += weeks;
 
@@ -491,7 +493,7 @@ export default async function PropositionPage({
                                     }}
                                   >
                                     <span className="truncate px-1">
-                                      {weeks}{" "}
+                                      {weeksRaw}{" "}
                                       {langue === "en" ? "wk" : "sem."}
                                     </span>
                                   </div>
