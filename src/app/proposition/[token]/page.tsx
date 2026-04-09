@@ -74,6 +74,16 @@ function formatShortDate(date: Date, langue: Langue): string {
   });
 }
 
+// ─── Sanitize & render simple HTML ───────────────────────────────────────
+
+/** Strip all tags except basic formatting ones, then render as HTML */
+function sanitizeHtml(raw: string): string {
+  // Allow only safe tags: p, br, strong, b, em, i, ul, ol, li, a (with href)
+  return raw
+    .replace(/<(?!\/?(?:p|br|strong|b|em|i|ul|ol|li|a|span|h[1-6])[ >/])[^>]*>/gi, "")
+    .trim();
+}
+
 // ─── Color palettes ───────────────────────────────────────────────────────
 
 const BENEFIT_COLORS = [
@@ -195,9 +205,10 @@ export default async function PropositionPage({
           {/* ── Introduction ─────────────────────────────────────────── */}
           {prop.introduction && (
             <div className="rounded-xl border border-primary/30 bg-card p-6">
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                {prop.introduction}
-              </p>
+              <div
+                className="text-muted-foreground leading-relaxed whitespace-pre-line prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(prop.introduction) }}
+              />
             </div>
           )}
 
@@ -225,9 +236,10 @@ export default async function PropositionPage({
                         <h3 className="font-semibold">
                           {bc.titre}
                         </h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {bc.description}
-                        </p>
+                        <div
+                          className="text-sm text-muted-foreground leading-relaxed [&>p]:mb-1 [&>p:last-child]:mb-0"
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(bc.description) }}
+                        />
                       </div>
                     );
                   },
@@ -284,9 +296,10 @@ export default async function PropositionPage({
                               {ss.titre}
                             </p>
                             {ss.description && (
-                              <p className="text-xs text-muted-foreground/70 mt-0.5">
-                                {ss.description}
-                              </p>
+                              <div
+                                className="text-xs text-muted-foreground/70 mt-0.5 [&>p]:mb-0"
+                                dangerouslySetInnerHTML={{ __html: sanitizeHtml(ss.description) }}
+                              />
                             )}
                           </div>
                           <div className="flex items-center gap-6 text-sm text-muted-foreground shrink-0 ml-4">
@@ -546,9 +559,10 @@ export default async function PropositionPage({
                         <h3 className="font-semibold">
                           {ic.titre}
                         </h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {ic.description}
-                        </p>
+                        <div
+                          className="text-sm text-muted-foreground leading-relaxed [&>p]:mb-1 [&>p:last-child]:mb-0"
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(ic.description) }}
+                        />
                       </div>
                     );
                   },
@@ -560,9 +574,10 @@ export default async function PropositionPage({
           {/* ── Conclusion ───────────────────────────────────────────── */}
           {prop.conclusion && (
             <div className="rounded-xl border border-border bg-card p-6">
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                {prop.conclusion}
-              </p>
+              <div
+                className="text-muted-foreground leading-relaxed whitespace-pre-line prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(prop.conclusion) }}
+              />
             </div>
           )}
 
