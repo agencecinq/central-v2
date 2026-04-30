@@ -125,7 +125,7 @@ export default async function ClientProjectDetailPage({
   const hasGanttData = phases.length > 0 || ganttTasks.some((t) => t.dateDebut || t.dateEcheance);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-7 pt-6 pb-12">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { TicketList } from "./ticket-list";
+import { RailPageHeader, RailPageBody } from "@/components/rail/page-header";
 
 function getWidgetLabel(metaInfo: string | null): string {
   if (!metaInfo) return "Widget";
@@ -91,21 +92,23 @@ export default async function TicketsPage() {
     orderBy: { name: "asc" },
   });
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Tickets</h2>
-        <p className="mt-1 text-muted-foreground">
-          Suivez et gérez les tickets de vos projets.
-        </p>
-      </div>
+  const openCount = serialized.filter((t) => t.statut === "ouvert").length;
 
-      <TicketList
-        tickets={serialized}
-        projects={projectOptions}
-        users={users.map((u) => ({ id: u.id, name: u.name ?? "" }))}
-        currentUserId={userId}
+  return (
+    <>
+      <RailPageHeader
+        eyebrow="Support"
+        title="Tickets"
+        description={`${openCount} ouvert${openCount > 1 ? "s" : ""} · ${serialized.length} au total`}
       />
-    </div>
+      <RailPageBody>
+        <TicketList
+          tickets={serialized}
+          projects={projectOptions}
+          users={users.map((u) => ({ id: u.id, name: u.name ?? "" }))}
+          currentUserId={userId}
+        />
+      </RailPageBody>
+    </>
   );
 }

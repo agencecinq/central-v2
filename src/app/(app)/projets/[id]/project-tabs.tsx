@@ -157,6 +157,36 @@ function formatWeek(semaine: string): string {
   return `S${match[2]} ${match[1]}`;
 }
 
+// Rail v2 tab trigger — uses Radix Tabs.Trigger via shadcn TabsTrigger but with overridden styles
+function RailTabTrigger({ value, label, count }: { value: string; label: string; count?: string }) {
+  return (
+    <TabsTrigger
+      value={value}
+      className="
+        relative h-auto rounded-none border-0 bg-transparent
+        px-3 py-2 text-[12.5px] font-medium tracking-normal
+        text-[var(--rail-muted)]
+        data-[state=active]:bg-transparent
+        data-[state=active]:text-[var(--rail-ink)]
+        data-[state=active]:shadow-none
+        data-[state=active]:border-b-2 data-[state=active]:border-[var(--b-accent)]
+        -mb-px
+      "
+      style={{ borderBottom: "2px solid transparent" }}
+    >
+      {label}
+      {count !== undefined && (
+        <span
+          className="ml-1.5 text-[10.5px]"
+          style={{ fontFamily: "var(--font-mono)", color: "var(--rail-muted)" }}
+        >
+          {count}
+        </span>
+      )}
+    </TabsTrigger>
+  );
+}
+
 export function ProjectTabs({
   projectId,
   tasks,
@@ -253,19 +283,14 @@ export function ProjectTabs({
   return (
     <>
       <Tabs defaultValue="tasks">
-        <TabsList>
-          <TabsTrigger value="tasks">
-            Tâches ({todoCount}{doneCount > 0 ? ` / ${tasks.length}` : ""})
-          </TabsTrigger>
-          <TabsTrigger value="transactions">
-            Dépenses ({transactions.length})
-          </TabsTrigger>
-          <TabsTrigger value="temps">
-            Temps passé ({timeEntries.length})
-          </TabsTrigger>
-          <TabsTrigger value="planning">
-            Planning ({phases.length})
-          </TabsTrigger>
+        <TabsList
+          className="bg-transparent border-0 rounded-none p-0 h-auto gap-0"
+          style={{ borderBottom: "1px solid var(--rail-hair)" }}
+        >
+          <RailTabTrigger value="tasks" label="Tâches" count={`${todoCount}${doneCount > 0 ? ` / ${tasks.length}` : ""}`} />
+          <RailTabTrigger value="transactions" label="Dépenses" count={String(transactions.length)} />
+          <RailTabTrigger value="temps" label="Temps passé" count={String(timeEntries.length)} />
+          <RailTabTrigger value="planning" label="Planning" count={String(phases.length)} />
         </TabsList>
 
         <TabsContent value="tasks" className="mt-4 space-y-4">
@@ -283,10 +308,17 @@ export function ProjectTabs({
               )}
               {showDone ? "Masquer terminées" : `Afficher terminées (${doneCount})`}
             </Button>
-            <Button size="sm" onClick={openCreateTask}>
-              <Plus className="mr-1.5 h-4 w-4" />
+            <button
+              onClick={openCreateTask}
+              className="inline-flex items-center gap-1.5 text-white rounded-md text-[12.5px] font-medium"
+              style={{
+                padding: "7px 12px",
+                background: "var(--b-accent)",
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
               Ajouter une tâche
-            </Button>
+            </button>
           </div>
 
           {filteredTasks.length === 0 ? (
@@ -433,10 +465,17 @@ export function ProjectTabs({
                 </p>
               </div>
             </div>
-            <Button size="sm" onClick={openCreateTx}>
-              <Plus className="mr-1.5 h-4 w-4" />
+            <button
+              onClick={openCreateTx}
+              className="inline-flex items-center gap-1.5 text-white rounded-md text-[12.5px] font-medium"
+              style={{
+                padding: "7px 12px",
+                background: "var(--b-accent)",
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
               Ajouter une transaction
-            </Button>
+            </button>
           </div>
 
           {transactions.length === 0 ? (

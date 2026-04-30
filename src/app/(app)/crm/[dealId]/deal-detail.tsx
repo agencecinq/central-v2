@@ -3,9 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,13 +54,15 @@ interface BudgetData {
   updatedAt: string | null;
 }
 
-const ETAPE_COLORS: Record<string, string> = {
-  Prospect: "bg-blue-100 text-blue-700",
-  Qualification: "bg-amber-100 text-amber-700",
-  Proposition: "bg-violet-100 text-violet-700",
-  Gagné: "bg-emerald-100 text-emerald-700",
-  Perdu: "bg-red-100 text-red-700",
+const ETAPE_TONES: Record<string, { bg: string; c: string }> = {
+  Prospect: { bg: "var(--rail-info-bg)", c: "var(--rail-info)" },
+  Qualification: { bg: "var(--rail-warn-bg)", c: "var(--rail-warn)" },
+  Proposition: { bg: "var(--rail-info-bg)", c: "var(--rail-info)" },
+  Gagné: { bg: "var(--rail-success-bg)", c: "var(--rail-success)" },
+  Perdu: { bg: "var(--rail-danger-bg)", c: "var(--rail-danger)" },
 };
+
+const ETAPES_ORDER = ["Prospect", "Qualification", "Proposition", "Gagné"];
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("fr-FR", {
@@ -115,35 +114,57 @@ export function DealDetail({
     router.push(`/crm/${deal.id}/budget/${newBudgetId}`);
   }
 
+  const etapeTone = ETAPE_TONES[deal.etape] ?? {
+    bg: "var(--rail-hair2)",
+    c: "var(--rail-ink2)",
+  };
+  const stageIdx = ETAPES_ORDER.indexOf(deal.etape);
+
   return (
     <div className="space-y-6">
       {/* Deal header */}
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-5">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1
+              className="m-0 text-[24px] font-semibold"
+              style={{ letterSpacing: "-0.5px" }}
+            >
               {deal.titre}
             </h1>
-            <Badge
-              className={ETAPE_COLORS[deal.etape] ?? "bg-gray-100 text-gray-700"}
+            <span
+              className="text-[10.5px] uppercase font-medium"
+              style={{
+                padding: "3px 7px",
+                background: etapeTone.bg,
+                color: etapeTone.c,
+                borderRadius: 3,
+                letterSpacing: "0.04em",
+              }}
             >
               {deal.etape}
-            </Badge>
+            </span>
           </div>
-          <p className="mt-1 text-muted-foreground">
+          <p className="mt-1 text-[13px]" style={{ color: "var(--rail-muted)" }}>
             {deal.clientName} · {deal.clientEmail}
           </p>
           {/* Qonto client linking */}
-          <div className="mt-2 flex items-center gap-2">
-            <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Qonto :</span>
+          <div className="mt-2.5 flex items-center gap-2">
+            <Link2 className="h-3 w-3" style={{ color: "var(--rail-muted2)" }} />
+            <span className="text-[11.5px]" style={{ color: "var(--rail-muted)" }}>
+              Qonto :
+            </span>
             {qontoClients.length > 0 ? (
               <Select
                 value={deal.qontoClientId ?? "none"}
                 onValueChange={(v) => handleQontoLinkChange(v ?? "none")}
               >
                 <SelectTrigger
-                  className={`h-7 w-[220px] text-xs ${deal.qontoClientId ? "border-emerald-300 text-emerald-700" : ""}`}
+                  className="h-7 w-[220px] text-[11.5px]"
+                  style={{
+                    borderColor: deal.qontoClientId ? "var(--rail-success)" : "var(--rail-hair)",
+                    color: deal.qontoClientId ? "var(--rail-success)" : "var(--rail-ink)",
+                  }}
                   disabled={isPending}
                 >
                   {deal.qontoClientId
@@ -160,189 +181,207 @@ export function DealDetail({
                 </SelectContent>
               </Select>
             ) : (
-              <span className="text-xs text-muted-foreground">Qonto non configuré</span>
+              <span className="text-[11.5px]" style={{ color: "var(--rail-muted)" }}>
+                Qonto non configuré
+              </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Deal info cards */}
+      {/* Stage progression bar */}
+      {deal.etape !== "Perdu" && (
+        <div className="flex gap-1">
+          {ETAPES_ORDER.map((s, i) => {
+            const done = i <= stageIdx;
+            return (
+              <div
+                key={s}
+                className="flex-1 text-center text-[11px] font-medium"
+                style={{
+                  padding: "6px 8px",
+                  background: done ? "var(--b-accent)" : "var(--rail-hair)",
+                  color: done ? "#fff" : "var(--rail-muted)",
+                  borderRadius: 3,
+                }}
+              >
+                {s}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Deal info cards — Rail v2 KPIs */}
       <div className="grid grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Montant estimé
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">
-              {formatCurrency(deal.montantEstime)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Montant final
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">
-              {deal.montantFinal != null
-                ? formatCurrency(deal.montantFinal)
-                : "—"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Date de signature
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">
-              {formatDate(deal.dateSignature)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Créé le
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">
-              {formatDate(deal.createdAt)}
-            </p>
-          </CardContent>
-        </Card>
+        <CrmKpi label="Montant estimé" value={formatCurrency(deal.montantEstime)} />
+        <CrmKpi
+          label="Montant final"
+          value={deal.montantFinal != null ? formatCurrency(deal.montantFinal) : "—"}
+          tone={deal.montantFinal != null ? "good" : "default"}
+        />
+        <CrmKpi label="Date de signature" value={formatDate(deal.dateSignature)} />
+        <CrmKpi label="Créé le" value={formatDate(deal.createdAt)} />
       </div>
 
       {/* Budgets / Propositions */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">
-            Propositions commerciales
+      <section
+        className="overflow-hidden"
+        style={{
+          background: "var(--rail-panel)",
+          border: "1px solid var(--rail-hair)",
+          borderRadius: 8,
+        }}
+      >
+        <header
+          className="flex items-center justify-between"
+          style={{
+            padding: "12px 18px",
+            borderBottom: "1px solid var(--rail-hair)",
+          }}
+        >
+          <div>
+            <div className="text-[13px] font-semibold">Propositions commerciales</div>
             {budgets.length > 0 && (
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                ({budgets.length})
-              </span>
+              <div className="text-[11.5px] mt-0.5" style={{ color: "var(--rail-muted)" }}>
+                {budgets.length} proposition{budgets.length > 1 ? "s" : ""}
+              </div>
             )}
-          </h2>
-          <Button render={<Link href={`/crm/${deal.id}/budget/new`} />}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouveau budget
-          </Button>
-        </div>
+          </div>
+          <Link
+            href={`/crm/${deal.id}/budget/new`}
+            className="inline-flex items-center gap-1.5 text-white rounded-md text-[12.5px] font-medium"
+            style={{
+              padding: "7px 12px",
+              background: "var(--b-accent)",
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Nouveau budget
+          </Link>
+        </header>
 
         {budgets.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <FileText className="h-10 w-10 text-muted-foreground/40" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                Aucune proposition commerciale pour ce deal.
-              </p>
-              <Button render={<Link href={`/crm/${deal.id}/budget/new`} />} variant="outline" className="mt-4">
-                <Plus className="mr-2 h-4 w-4" />
-                Créer un budget
-              </Button>
-            </CardContent>
-          </Card>
+          <div
+            className="flex flex-col items-center justify-center text-center"
+            style={{ padding: "48px 20px" }}
+          >
+            <FileText
+              className="h-8 w-8"
+              style={{ color: "var(--rail-muted2)" }}
+            />
+            <p
+              className="mt-3 text-[13px]"
+              style={{ color: "var(--rail-muted)" }}
+            >
+              Aucune proposition commerciale pour ce deal.
+            </p>
+            <Link
+              href={`/crm/${deal.id}/budget/new`}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-md text-[12.5px] font-medium bg-white"
+              style={{
+                padding: "7px 12px",
+                border: "1px solid var(--rail-hair)",
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" /> Créer un budget
+            </Link>
+          </div>
         ) : (
-          <div className="rounded-xl border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-4 py-2.5 font-medium">Nom</th>
-                  <th className="px-4 py-2.5 text-right font-medium">
-                    Montant HT
-                  </th>
-                  <th className="px-4 py-2.5 text-right font-medium">
-                    Remise
-                  </th>
-                  <th className="px-4 py-2.5 text-right font-medium">TVA</th>
-                  <th className="px-4 py-2.5 text-right font-medium">
-                    Dernière modif.
-                  </th>
-                  <th className="w-10 px-2 py-2.5" />
-                </tr>
-              </thead>
-              <tbody>
-                {budgets.map((budget) => (
-                  <tr
-                    key={budget.id}
-                    className="group border-b last:border-b-0 hover:bg-muted/30"
+          <div>
+            <div
+              className="grid gap-3 text-[10.5px] uppercase"
+              style={{
+                gridTemplateColumns: "1.4fr 130px 80px 80px 130px 32px",
+                padding: "8px 18px",
+                letterSpacing: "0.08em",
+                color: "var(--rail-muted)",
+                background: "var(--rail-hair3)",
+                borderBottom: "1px solid var(--rail-hair2)",
+              }}
+            >
+              <span>Nom</span>
+              <span className="text-right">Montant HT</span>
+              <span className="text-right">Remise</span>
+              <span className="text-right">TVA</span>
+              <span className="text-right">Dernière modif.</span>
+              <span />
+            </div>
+            {budgets.map((budget, i) => (
+              <div
+                key={budget.id}
+                className="group grid items-center text-[13px]"
+                style={{
+                  gridTemplateColumns: "1.4fr 130px 80px 80px 130px 32px",
+                  gap: 12,
+                  padding: "12px 18px",
+                  borderTop: i === 0 ? "none" : "1px solid var(--rail-hair2)",
+                }}
+              >
+                <Link
+                  href={`/crm/${deal.id}/budget/${budget.id}`}
+                  className="font-medium hover:underline whitespace-nowrap overflow-hidden text-ellipsis"
+                >
+                  {budget.nom || "Sans nom"}
+                </Link>
+                <span
+                  className="text-right"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
+                  {formatCurrency(budget.montantTotal)}
+                </span>
+                <span
+                  className="text-right text-[12px]"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    color:
+                      budget.remiseGlobale > 0 ? "var(--rail-warn)" : "var(--rail-muted2)",
+                  }}
+                >
+                  {budget.remiseGlobale > 0 ? `${budget.remiseGlobale}%` : "—"}
+                </span>
+                <span
+                  className="text-right text-[12px]"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
+                  {budget.tauxTva}%
+                </span>
+                <span
+                  className="text-right text-[12px]"
+                  style={{ color: "var(--rail-muted)" }}
+                >
+                  {formatDate(budget.updatedAt || budget.createdAt)}
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <button className="h-7 w-7 grid place-items-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--rail-hair2)]" />
+                    }
                   >
-                    <td className="px-4 py-3 font-medium">
-                      <Link
-                        href={`/crm/${deal.id}/budget/${budget.id}`}
-                        className="hover:underline"
-                      >
-                        {budget.nom || "Sans nom"}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {formatCurrency(budget.montantTotal)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {budget.remiseGlobale > 0
-                        ? `${budget.remiseGlobale}%`
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right">{budget.tauxTva}%</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">
-                      {formatDate(budget.updatedAt || budget.createdAt)}
-                    </td>
-                    <td className="px-2 py-3">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
-                            />
-                          }
-                        >
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            render={
-                              <Link
-                                href={`/crm/${deal.id}/budget/${budget.id}`}
-                              />
-                            }
-                          >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Modifier
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDuplicate(budget.id)}
-                          >
-                            <Copy className="mr-2 h-4 w-4" />
-                            Dupliquer
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => openDeleteBudget(budget)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    <MoreHorizontal className="h-3.5 w-3.5" style={{ color: "var(--rail-muted)" }} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      render={<Link href={`/crm/${deal.id}/budget/${budget.id}`} />}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" /> Modifier
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDuplicate(budget.id)}>
+                      <Copy className="mr-2 h-4 w-4" /> Dupliquer
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => openDeleteBudget(budget)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Delete budget dialog */}
       <DeleteDialog
@@ -356,6 +395,44 @@ export function DealDetail({
           }
         }}
       />
+    </div>
+  );
+}
+
+// ─── CRM KPI Card (no sparkline, simple) ─────────────────
+function CrmKpi({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "good";
+}) {
+  return (
+    <div
+      style={{
+        background: "var(--rail-panel)",
+        border: "1px solid var(--rail-hair)",
+        borderRadius: 8,
+        padding: "16px 18px 14px",
+      }}
+    >
+      <div
+        className="text-[11px] tracking-[0.06em] uppercase mb-2"
+        style={{ color: "var(--rail-muted)" }}
+      >
+        {label}
+      </div>
+      <div
+        className="text-[22px] font-semibold tabular leading-tight"
+        style={{
+          letterSpacing: "-0.4px",
+          color: tone === "good" ? "var(--rail-success)" : "var(--rail-ink)",
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }

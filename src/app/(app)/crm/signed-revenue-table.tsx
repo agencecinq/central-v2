@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TrendingUp, Settings2 } from "lucide-react";
@@ -86,30 +85,51 @@ export function SignedRevenueTable({ deals, initialObjectif }: Props) {
   const ecartAnnuel = objectifAnnuel > 0 ? total - objectifAnnuel : 0;
 
   return (
-    <Card>
-      <CardHeader className="pb-3 flex-row items-center gap-2">
-        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        <CardTitle className="text-base font-semibold flex-1">
-          Signé {year}
-        </CardTitle>
+    <section
+      className="overflow-hidden"
+      style={{
+        background: "var(--rail-panel)",
+        border: "1px solid var(--rail-hair)",
+        borderRadius: 8,
+      }}
+    >
+      <header
+        className="flex items-center gap-2"
+        style={{
+          padding: "12px 18px",
+          borderBottom: "1px solid var(--rail-hair)",
+        }}
+      >
+        <TrendingUp className="h-3.5 w-3.5" style={{ color: "var(--rail-muted)" }} />
+        <span className="text-[13px] font-semibold flex-1">Signé {year}</span>
         <div className="flex items-center gap-3">
           {objectifAnnuel > 0 && (
-            <span className={`text-sm tabular-nums font-medium ${ecartAnnuel >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-              {ecartAnnuel >= 0 ? "+" : ""}{formatEuro(ecartAnnuel)} vs obj.
+            <span
+              className="text-[12px] font-medium"
+              style={{
+                fontFamily: "var(--font-mono)",
+                color: ecartAnnuel >= 0 ? "var(--rail-success)" : "var(--rail-danger)",
+              }}
+            >
+              {ecartAnnuel >= 0 ? "+" : ""}
+              {formatEuro(ecartAnnuel)} vs obj.
             </span>
           )}
-          <span className="text-lg font-bold tabular-nums">
+          <span
+            className="text-[16px] font-semibold"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
             {formatEuro(total)}
           </span>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-1 rounded hover:bg-muted transition-colors"
+            className="p-1 rounded transition-colors hover:bg-[var(--rail-hair2)]"
             title="Objectif mensuel"
           >
-            <Settings2 className="h-4 w-4 text-muted-foreground" />
+            <Settings2 className="h-3.5 w-3.5" style={{ color: "var(--rail-muted)" }} />
           </button>
         </div>
-      </CardHeader>
+      </header>
 
       {/* Objectif settings */}
       {showSettings && (
@@ -137,7 +157,7 @@ export function SignedRevenueTable({ deals, initialObjectif }: Props) {
         </div>
       )}
 
-      <CardContent>
+      <div className="px-5 py-4">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -310,7 +330,7 @@ export function SignedRevenueTable({ deals, initialObjectif }: Props) {
             </tbody>
           </table>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

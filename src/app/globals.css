@@ -5,6 +5,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Central — Rail v2 fonts loaded via next/font in src/app/layout.tsx */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -49,6 +51,57 @@
 }
 
 :root {
+  /* Central Rail v2 — typography (font CSS vars come from next/font in src/app/layout.tsx) */
+
+  /* Central Rail v2 — warm neutrals */
+  --rail-n-0: #ffffff;
+  --rail-n-25: #fbfbfa;
+  --rail-n-50: #f7f7f5;
+  --rail-n-75: #f1f1ee;
+  --rail-n-100: #e9e9e5;
+  --rail-n-150: #dedeD9;
+  --rail-n-200: #c9c9c2;
+  --rail-n-300: #a8a8a0;
+  --rail-n-400: #86867c;
+  --rail-n-500: #65655c;
+  --rail-n-600: #4a4a43;
+  --rail-n-700: #2f2f2a;
+  --rail-n-800: #1f1f1c;
+  --rail-n-900: #121210;
+
+  /* Central Rail v2 — panel/border colors */
+  --rail-bg: #f7f7f5;
+  --rail-panel: #ffffff;
+  --rail-hair: #ebebe6;
+  --rail-hair2: #f3f3ef;
+  --rail-hair3: #f7f7f3;
+  --rail-ink: #1f1f1c;
+  --rail-ink2: #4a4a43;
+  --rail-muted: #86867c;
+  --rail-muted2: #a8a8a0;
+
+  /* Central Rail v2 — dark sidebar */
+  --rail-dark: #18181b;
+  --rail-dark-hover: #2e2e33;
+  --rail-dark-border: #2a2a2e;
+  --rail-dark-text: #a3a39c;
+  --rail-dark-text-dim: #64645e;
+  --rail-dark-text-bright: #fafaf7;
+  --rail-search-bg: #232327;
+
+  /* Central Rail v2 — accent (tweakable) */
+  --b-accent: #1a1a17;
+
+  /* Central Rail v2 — semantic */
+  --rail-success: #3e6b4a;
+  --rail-success-bg: #eaf0eb;
+  --rail-warn: #9a6a1c;
+  --rail-warn-bg: #f3ecdd;
+  --rail-danger: #8b2e2e;
+  --rail-danger-bg: #f1e5e5;
+  --rail-info: #3a5b8a;
+  --rail-info-bg: #e6ecf3;
+
   --background: oklch(0.985 0.002 260);
   --foreground: oklch(0.145 0.015 260);
   --card: oklch(1 0 0);
@@ -125,6 +178,19 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 }
+
+/* Central Rail v2 — utility classes */
+.font-serif-rail { font-family: var(--font-serif); }
+.font-mono-rail { font-family: var(--font-mono); }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Minimal scrollbar for dark rail sidebar */
+.rail-scroll::-webkit-scrollbar { width: 8px; }
+.rail-scroll::-webkit-scrollbar-track { background: transparent; }
+.rail-scroll::-webkit-scrollbar-thumb { background: #2a2a2e; border-radius: 8px; }

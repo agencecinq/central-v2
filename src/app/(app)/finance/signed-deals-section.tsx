@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Link2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Plus, Link2, FileText } from "lucide-react";
 import { formatEuro } from "@/lib/budget-calc";
 import {
   LinkInvoiceDialog,
@@ -24,6 +22,15 @@ interface SignedDeal {
   linkedInvoices: LinkedInvoice[];
 }
 
+function fmtShortDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function SignedDealsSection({
   signedDeals,
   allInvoices,
@@ -35,51 +42,89 @@ export function SignedDealsSection({
 }) {
   const [dialogDeal, setDialogDeal] = useState<SignedDeal | null>(null);
 
-  // Filter out invoices already linked to ANY deal
   const globalLinkedSet = new Set(allLinkedQontoIds);
   const availableInvoices = allInvoices.filter(
     (inv) => !globalLinkedSet.has(inv.qontoId),
   );
 
-  return (
-    <section className="space-y-3">
-      <h3 className="text-lg font-semibold">Signé non facturé</h3>
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-muted-foreground">
-                  <th className="px-4 py-3 font-medium">Deal</th>
-                  <th className="px-4 py-3 font-medium">Client</th>
-                  <th className="px-4 py-3 font-medium text-right">
-                    Montant signé
-                  </th>
-                  <th className="px-4 py-3 font-medium text-right">
-                    Facturé
-                  </th>
-                  <th className="px-4 py-3 font-medium text-right">
-                    Reste
-                  </th>
-                  <th className="px-4 py-3 font-medium">Signé le</th>
-                  <th className="px-4 py-3 font-medium w-10" />
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {signedDeals.map((deal) => (
-                  <DealRow
-                    key={deal.id}
-                    deal={deal}
-                    onOpenDialog={() => setDialogDeal(deal)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+  const totalReste = signedDeals.reduce((s, d) => s + d.resteAFacturer, 0);
+  const totalSigne = signedDeals.reduce((s, d) => s + d.montantFinal, 0);
+  const totalFact = signedDeals.reduce((s, d) => s + d.totalFacture, 0);
+  const cols = "1.6fr 1fr 130px 130px 130px 130px 32px";
 
-      {/* Link Invoice Dialog */}
+  return (
+    <section
+      className="overflow-hidden"
+      style={{
+        background: "var(--rail-panel)",
+        border: "1px solid var(--rail-hair)",
+        borderRadius: 8,
+      }}
+    >
+      <header
+        className="flex items-center gap-2"
+        style={{
+          padding: "12px 18px",
+          borderBottom: "1px solid var(--rail-hair)",
+        }}
+      >
+        <FileText className="h-3.5 w-3.5" style={{ color: "var(--rail-info)" }} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-semibold">Signé non facturé</div>
+          <div className="text-[11.5px] mt-0.5" style={{ color: "var(--rail-muted)" }}>
+            {signedDeals.length} deal{signedDeals.length > 1 ? "s" : ""} ·{" "}
+            {formatEuro(totalReste)} restant à facturer
+          </div>
+        </div>
+        <div className="text-right">
+          <div
+            className="text-[13px] font-semibold"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            {formatEuro(totalReste)}
+          </div>
+          <div
+            className="text-[11px] mt-0.5"
+            style={{ fontFamily: "var(--font-mono)", color: "var(--rail-muted)" }}
+          >
+            {formatEuro(totalFact)} / {formatEuro(totalSigne)}
+          </div>
+        </div>
+      </header>
+
+      <div>
+        {/* Header row */}
+        <div
+          className="grid gap-3 text-[10.5px] uppercase"
+          style={{
+            gridTemplateColumns: cols,
+            padding: "8px 18px",
+            letterSpacing: "0.08em",
+            color: "var(--rail-muted)",
+            background: "var(--rail-hair3)",
+            borderBottom: "1px solid var(--rail-hair2)",
+          }}
+        >
+          <span>Deal</span>
+          <span>Client</span>
+          <span className="text-right">Montant signé</span>
+          <span className="text-right">Facturé</span>
+          <span className="text-right">Reste</span>
+          <span>Signé le</span>
+          <span />
+        </div>
+
+        {signedDeals.map((deal, i) => (
+          <DealBlock
+            key={deal.id}
+            deal={deal}
+            cols={cols}
+            isFirst={i === 0}
+            onOpenDialog={() => setDialogDeal(deal)}
+          />
+        ))}
+      </div>
+
       {dialogDeal && (
         <LinkInvoiceDialog
           deal={dialogDeal}
@@ -94,83 +139,118 @@ export function SignedDealsSection({
   );
 }
 
-function DealRow({
+function DealBlock({
   deal,
+  cols,
+  isFirst,
   onOpenDialog,
 }: {
   deal: SignedDeal;
+  cols: string;
+  isFirst: boolean;
   onOpenDialog: () => void;
 }) {
   return (
     <>
-      <tr className="hover:bg-muted/50">
-        <td className="px-4 py-3">
-          <Link
-            href={`/crm/${deal.id}`}
-            className="text-primary hover:underline font-medium"
-          >
-            {deal.titre}
-          </Link>
-        </td>
-        <td className="px-4 py-3 text-muted-foreground">{deal.clientName}</td>
-        <td className="px-4 py-3 text-right text-muted-foreground">
+      <div
+        className="group grid gap-3 items-center text-[13px]"
+        style={{
+          gridTemplateColumns: cols,
+          padding: "12px 18px",
+          borderTop: isFirst ? "none" : "1px solid var(--rail-hair2)",
+        }}
+      >
+        <Link
+          href={`/crm/${deal.id}`}
+          className="font-medium hover:underline whitespace-nowrap overflow-hidden text-ellipsis"
+        >
+          {deal.titre}
+        </Link>
+        <span
+          className="whitespace-nowrap overflow-hidden text-ellipsis"
+          style={{ color: "var(--rail-ink2)" }}
+        >
+          {deal.clientName}
+        </span>
+        <span
+          className="text-right text-[12px]"
+          style={{
+            fontFamily: "var(--font-mono)",
+            color: "var(--rail-muted)",
+          }}
+        >
           {formatEuro(deal.montantFinal)}
-        </td>
-        <td className="px-4 py-3 text-right text-muted-foreground">
+        </span>
+        <span
+          className="text-right text-[12px]"
+          style={{
+            fontFamily: "var(--font-mono)",
+            color: "var(--rail-muted)",
+          }}
+        >
           {deal.totalFacture > 0 ? formatEuro(deal.totalFacture) : "—"}
-        </td>
-        <td className="px-4 py-3 text-right font-medium">
+        </span>
+        <span
+          className="text-right font-medium"
+          style={{
+            fontFamily: "var(--font-mono)",
+            color: deal.resteAFacturer > 0 ? "var(--rail-warn)" : "var(--rail-success)",
+          }}
+        >
           {formatEuro(deal.resteAFacturer)}
-        </td>
-        <td className="px-4 py-3 text-muted-foreground">
-          {deal.dateSignature
-            ? new Date(deal.dateSignature).toLocaleDateString("fr-FR", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })
-            : "—"}
-        </td>
-        <td className="px-4 py-3">
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={onOpenDialog}
-            title="Lier une facture"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </td>
-      </tr>
+        </span>
+        <span className="text-[12px]" style={{ color: "var(--rail-muted)" }}>
+          {fmtShortDate(deal.dateSignature)}
+        </span>
+        <button
+          onClick={onOpenDialog}
+          className="h-7 w-7 grid place-items-center rounded transition-colors hover:bg-[var(--rail-hair2)]"
+          title="Lier une facture"
+        >
+          <Plus className="h-3.5 w-3.5" style={{ color: "var(--rail-muted)" }} />
+        </button>
+      </div>
 
-      {/* Show linked invoices as sub-rows */}
+      {/* Linked invoices sub-rows */}
       {deal.linkedInvoices.map((li) => (
-        <tr key={li.id} className="bg-muted/30">
-          <td className="px-4 py-2 pl-8" colSpan={2}>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Link2 className="h-3 w-3 shrink-0" />
-              <span className="font-mono">{li.numero}</span>
-              <span>— {li.clientNom}</span>
-            </div>
-          </td>
-          <td className="px-4 py-2" />
-          <td className="px-4 py-2 text-right text-xs font-medium">
+        <div
+          key={li.id}
+          className="grid gap-3 items-center text-[12px]"
+          style={{
+            gridTemplateColumns: cols,
+            padding: "8px 18px 8px 36px",
+            borderTop: "1px solid var(--rail-hair2)",
+            background: "var(--rail-hair3)",
+          }}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Link2
+              className="h-3 w-3 shrink-0"
+              style={{ color: "var(--rail-muted2)" }}
+            />
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                color: "var(--rail-ink2)",
+              }}
+            >
+              {li.numero}
+            </span>
+          </span>
+          <span style={{ color: "var(--rail-muted)" }}>{li.clientNom}</span>
+          <span />
+          <span
+            className="text-right font-medium"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
             {formatEuro(li.montantHT)}
-          </td>
-          <td className="px-4 py-2" />
-          <td className="px-4 py-2 text-xs text-muted-foreground">
-            {li.dateFacture
-              ? new Date(li.dateFacture).toLocaleDateString("fr-FR", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })
-              : ""}
-          </td>
-          <td className="px-4 py-2">
-            <UnlinkButton dealFactureId={li.id} />
-          </td>
-        </tr>
+          </span>
+          <span />
+          <span style={{ color: "var(--rail-muted)" }}>
+            {fmtShortDate(li.dateFacture)}
+          </span>
+          <UnlinkButton dealFactureId={li.id} />
+        </div>
       ))}
     </>
   );

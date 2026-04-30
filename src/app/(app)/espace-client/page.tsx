@@ -41,7 +41,7 @@ export default async function EspaceClientPage() {
   const firstName = userName?.split(" ")[0] ?? "";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 px-7 pt-6 pb-12">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">
           Bonjour, {firstName}

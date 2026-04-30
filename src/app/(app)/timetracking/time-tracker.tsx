@@ -164,107 +164,359 @@ export function TimeTracker({
 
   const totalJours = Math.round((totalHeures / 8) * 100) / 100;
 
+  // Breakdown by project
+  const byProject = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of weekEntries) {
+      const key = e.projectTitre ?? "—";
+      const hrs = e.unite === "jours" ? e.duree * 8 : e.duree;
+      map.set(key, (map.get(key) ?? 0) + hrs);
+    }
+    return Array.from(map.entries())
+      .map(([titre, heures]) => ({ titre, heures }))
+      .sort((a, b) => b.heures - a.heures);
+  }, [weekEntries]);
+
+  // History 8 weeks
+  const last8Weeks = useMemo(() => {
+    const weeks: { semaine: string; total: number }[] = [];
+    for (let i = 7; i >= 0; i--) {
+      const w = offsetWeek(currentWeek, -i);
+      const wEntries = entries.filter((e) => e.semaine === w);
+      const total = wEntries.reduce(
+        (s, e) => s + (e.unite === "jours" ? e.duree * 8 : e.duree),
+        0,
+      );
+      weeks.push({ semaine: w, total });
+    }
+    return weeks;
+  }, [entries, currentWeek]);
+
+  const TARGET_HOURS = 35;
+  const tempsPct = Math.min(100, (totalHeures / TARGET_HOURS) * 100);
   const isCurrentWeek = selectedWeek === currentWeek;
 
+  const maxBar = Math.max(...last8Weeks.map((w) => w.total), TARGET_HOURS);
+
   return (
-    <>
-      {/* ─── Week navigation ──────────────────────────────────────── */}
+    <div className="space-y-5">
+      {/* ─── Week navigation + add ───────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
+          <button
             onClick={() => setSelectedWeek(offsetWeek(selectedWeek, -1))}
+            className="h-8 w-8 grid place-items-center rounded transition-colors hover:bg-[var(--rail-hair2)]"
+            style={{ border: "1px solid var(--rail-hair)" }}
           >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium min-w-[260px] text-center">
+            <ChevronLeft className="h-4 w-4" style={{ color: "var(--rail-muted)" }} />
+          </button>
+          <span
+            className="text-[13px] font-medium min-w-[260px] text-center"
+            style={{ color: "var(--rail-ink)" }}
+          >
             {formatWeekLabel(selectedWeek)}
           </span>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
+          <button
             onClick={() => setSelectedWeek(offsetWeek(selectedWeek, 1))}
+            className="h-8 w-8 grid place-items-center rounded transition-colors hover:bg-[var(--rail-hair2)]"
+            style={{ border: "1px solid var(--rail-hair)" }}
           >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+            <ChevronRight className="h-4 w-4" style={{ color: "var(--rail-muted)" }} />
+          </button>
           {!isCurrentWeek && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs"
+            <button
               onClick={() => setSelectedWeek(currentWeek)}
+              className="text-[12px]"
+              style={{
+                color: "var(--rail-muted)",
+                padding: "5px 10px",
+              }}
             >
               Aujourd&apos;hui
-            </Button>
+            </button>
           )}
         </div>
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Ajouter du temps
-        </Button>
+        <button
+          onClick={() => setDialogOpen(true)}
+          className="inline-flex items-center gap-1.5 text-white rounded-md text-[12.5px] font-medium"
+          style={{ padding: "7px 12px", background: "var(--b-accent)" }}
+        >
+          <Plus className="h-3.5 w-3.5" /> Ajouter du temps
+        </button>
       </div>
 
-      {/* ─── Summary cards ────────────────────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardContent className="flex items-center gap-4 py-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <Clock className="h-5 w-5 text-primary" />
+      {/* ─── Hero: total + breakdown by project ────────────────── */}
+      <section
+        className="grid gap-4"
+        style={{ gridTemplateColumns: "1.2fr 1.6fr" }}
+      >
+        {/* Total + progress */}
+        <div
+          style={{
+            background: "var(--rail-panel)",
+            border: "1px solid var(--rail-hair)",
+            borderRadius: 8,
+            padding: "20px 22px",
+          }}
+        >
+          <div
+            className="text-[11.5px] tracking-[0.1em] uppercase mb-2.5"
+            style={{ color: "var(--rail-muted)" }}
+          >
+            Total — {formatWeekLabel(selectedWeek)}
+          </div>
+          <div className="flex items-baseline gap-2">
+            <div
+              className="text-[40px] font-semibold tabular leading-none"
+              style={{ letterSpacing: "-1px" }}
+            >
+              {totalHeures}h
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total heures</p>
-              <p className="text-xl font-bold">{totalHeures}h</p>
+            <div
+              className="text-[14px]"
+              style={{
+                color: "var(--rail-muted)",
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              / {TARGET_HOURS}h · {totalJours}j
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 py-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
-              <Clock className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total jours</p>
-              <p className="text-xl font-bold">{totalJours}j</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          <div
+            className="mt-3.5 h-1 rounded overflow-hidden"
+            style={{ background: "var(--rail-hair)" }}
+          >
+            <div
+              className="h-full"
+              style={{
+                width: `${tempsPct}%`,
+                background: "var(--b-accent)",
+              }}
+            />
+          </div>
+          <div
+            className="mt-2 text-[11.5px]"
+            style={{ color: "var(--rail-muted)" }}
+          >
+            {totalHeures < TARGET_HOURS
+              ? `${(TARGET_HOURS - totalHeures).toFixed(1)}h à saisir`
+              : `+${(totalHeures - TARGET_HOURS).toFixed(1)}h au-dessus de l'objectif`}
+          </div>
+        </div>
 
-      {/* ─── Entries table ────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Temps saisis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {weekEntries.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Aucun temps saisi cette semaine.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="pb-2 pr-4 font-medium">Projet / Tâche</th>
-                    <th className="pb-2 pr-4 font-medium">Catégorie</th>
-                    <th className="pb-2 pr-4 font-medium text-right">Durée</th>
-                    <th className="pb-2 pr-4 font-medium">Description</th>
-                    <th className="pb-2 w-10" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {weekEntries.map((entry) => (
-                    <EntryRow key={entry.id} entry={entry} />
-                  ))}
-                </tbody>
-              </table>
+        {/* Breakdown by project */}
+        <div
+          className="overflow-hidden"
+          style={{
+            background: "var(--rail-panel)",
+            border: "1px solid var(--rail-hair)",
+            borderRadius: 8,
+          }}
+        >
+          <header
+            className="flex items-center justify-between"
+            style={{
+              padding: "12px 18px",
+              borderBottom: "1px solid var(--rail-hair)",
+            }}
+          >
+            <div>
+              <div className="text-[13px] font-semibold">Répartition par projet</div>
+              <div
+                className="text-[11.5px] mt-0.5"
+                style={{ color: "var(--rail-muted)" }}
+              >
+                {byProject.length} projet{byProject.length > 1 ? "s" : ""}
+              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </header>
+          <div className="px-[18px] py-2">
+            {byProject.length === 0 ? (
+              <p
+                className="text-[12.5px] py-6 text-center"
+                style={{ color: "var(--rail-muted)" }}
+              >
+                Aucune saisie cette semaine
+              </p>
+            ) : (
+              byProject.slice(0, 5).map((p) => {
+                const pct = (p.heures / Math.max(1, totalHeures)) * 100;
+                return (
+                  <div
+                    key={p.titre}
+                    className="flex items-center gap-3 py-1.5"
+                  >
+                    <span
+                      className="text-[12.5px] flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ color: "var(--rail-ink2)" }}
+                    >
+                      {p.titre}
+                    </span>
+                    <div
+                      className="w-32 h-1 rounded overflow-hidden"
+                      style={{ background: "var(--rail-hair)" }}
+                    >
+                      <div
+                        className="h-full"
+                        style={{
+                          width: `${pct}%`,
+                          background: "var(--b-accent)",
+                        }}
+                      />
+                    </div>
+                    <span
+                      className="text-[11.5px] w-16 text-right"
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        color: "var(--rail-ink2)",
+                      }}
+                    >
+                      {p.heures.toFixed(1)}h
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Entries grid ──────────────────────────────────────── */}
+      <section
+        className="overflow-hidden"
+        style={{
+          background: "var(--rail-panel)",
+          border: "1px solid var(--rail-hair)",
+          borderRadius: 8,
+        }}
+      >
+        <header
+          className="flex items-center justify-between"
+          style={{
+            padding: "12px 18px",
+            borderBottom: "1px solid var(--rail-hair)",
+          }}
+        >
+          <div>
+            <div className="text-[13px] font-semibold">Saisies de la semaine</div>
+            <div
+              className="text-[11.5px] mt-0.5"
+              style={{ color: "var(--rail-muted)" }}
+            >
+              {weekEntries.length} ligne{weekEntries.length > 1 ? "s" : ""}
+            </div>
+          </div>
+        </header>
+        {weekEntries.length === 0 ? (
+          <p
+            className="text-[12.5px] text-center"
+            style={{ padding: "32px 20px", color: "var(--rail-muted)" }}
+          >
+            Aucun temps saisi cette semaine.
+          </p>
+        ) : (
+          <div>
+            <div
+              className="grid gap-3 text-[10.5px] uppercase"
+              style={{
+                gridTemplateColumns: "1.6fr 130px 90px 1fr 32px",
+                padding: "8px 18px",
+                letterSpacing: "0.08em",
+                color: "var(--rail-muted)",
+                background: "var(--rail-hair3)",
+                borderBottom: "1px solid var(--rail-hair2)",
+              }}
+            >
+              <span>Projet / Tâche</span>
+              <span>Catégorie</span>
+              <span className="text-right">Durée</span>
+              <span>Description</span>
+              <span />
+            </div>
+            {weekEntries.map((entry) => (
+              <EntryRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ─── Week history (8 weeks) ────────────────────────────── */}
+      <section
+        className="overflow-hidden"
+        style={{
+          background: "var(--rail-panel)",
+          border: "1px solid var(--rail-hair)",
+          borderRadius: 8,
+        }}
+      >
+        <header
+          className="flex items-center justify-between"
+          style={{
+            padding: "12px 18px",
+            borderBottom: "1px solid var(--rail-hair)",
+          }}
+        >
+          <div>
+            <div className="text-[13px] font-semibold">8 dernières semaines</div>
+            <div
+              className="text-[11.5px] mt-0.5"
+              style={{ color: "var(--rail-muted)" }}
+            >
+              cliquez pour aller à une semaine
+            </div>
+          </div>
+        </header>
+        <div className="px-[18px] py-4">
+          <div className="flex items-end gap-3 h-32">
+            {last8Weeks.map((w) => {
+              const pct = (w.total / maxBar) * 100;
+              const isSelected = w.semaine === selectedWeek;
+              const isCur = w.semaine === currentWeek;
+              return (
+                <button
+                  key={w.semaine}
+                  onClick={() => setSelectedWeek(w.semaine)}
+                  className="flex-1 flex flex-col items-center gap-1.5 group"
+                >
+                  <div className="flex-1 w-full flex flex-col justify-end">
+                    <div
+                      className="rounded-t transition-all"
+                      style={{
+                        height: `${Math.max(2, pct)}%`,
+                        background: isSelected
+                          ? "var(--b-accent)"
+                          : w.total === 0
+                            ? "var(--rail-hair)"
+                            : "var(--rail-muted2)",
+                        opacity: isSelected ? 1 : 0.85,
+                      }}
+                    />
+                  </div>
+                  <span
+                    className="text-[10px]"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      color: isSelected ? "var(--rail-ink)" : "var(--rail-muted)",
+                      fontWeight: isSelected || isCur ? 600 : 400,
+                    }}
+                  >
+                    {w.semaine.replace(/^\d{4}-W/, "S")}
+                  </span>
+                  <span
+                    className="text-[11px]"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      color: w.total > 0 ? "var(--rail-ink)" : "var(--rail-muted2)",
+                    }}
+                  >
+                    {w.total > 0 ? `${w.total.toFixed(0)}h` : "—"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
       {/* ─── Add dialog ───────────────────────────────────────────── */}
       <AddEntryDialog
@@ -274,7 +526,7 @@ export function TimeTracker({
         projects={projects}
         tasks={tasks}
       />
-    </>
+    </div>
   );
 }
 
@@ -300,36 +552,50 @@ function EntryRow({ entry }: { entry: EntryItem }) {
   );
 
   return (
-    <tr className="border-b last:border-0">
-      <td className="py-2.5 pr-4">
-        <div className="flex items-center gap-2">
-          {icon}
-          <span className="truncate max-w-[260px]">{label}</span>
-        </div>
-      </td>
-      <td className="py-2.5 pr-4">
-        <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs">
-          {entry.categorie}
-        </span>
-      </td>
-      <td className="py-2.5 pr-4 text-right font-mono tabular-nums">
+    <div
+      className="grid gap-3 items-center text-[13px] group"
+      style={{
+        gridTemplateColumns: "1.6fr 130px 90px 1fr 32px",
+        padding: "10px 18px",
+        borderTop: "1px solid var(--rail-hair2)",
+      }}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        {icon}
+        <span className="whitespace-nowrap overflow-hidden text-ellipsis">{label}</span>
+      </div>
+      <span
+        className="text-[11px] font-medium uppercase inline-block w-fit"
+        style={{
+          padding: "2px 7px",
+          background: "var(--rail-hair2)",
+          color: "var(--rail-ink2)",
+          borderRadius: 3,
+          letterSpacing: "0.02em",
+        }}
+      >
+        {entry.categorie}
+      </span>
+      <span
+        className="text-right font-medium"
+        style={{ fontFamily: "var(--font-mono)" }}
+      >
         {formatDuree(entry.duree, entry.unite)}
-      </td>
-      <td className="py-2.5 pr-4 text-muted-foreground truncate max-w-[200px]">
+      </span>
+      <span
+        className="whitespace-nowrap overflow-hidden text-ellipsis text-[12px]"
+        style={{ color: "var(--rail-muted)" }}
+      >
         {entry.description || "—"}
-      </td>
-      <td className="py-2.5">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-          onClick={handleDelete}
-          disabled={isPending}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      </td>
-    </tr>
+      </span>
+      <button
+        onClick={handleDelete}
+        disabled={isPending}
+        className="h-7 w-7 grid place-items-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--rail-danger-bg)]"
+      >
+        <Trash2 className="h-3.5 w-3.5" style={{ color: "var(--rail-muted)" }} />
+      </button>
+    </div>
   );
 }
 

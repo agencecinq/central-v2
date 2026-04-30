@@ -91,7 +91,7 @@ export default async function BudgetEditorPage({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-7 pt-6 pb-12">
       <Link
         href={`/crm/${dealId}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"

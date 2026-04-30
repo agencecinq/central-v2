@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getMonday, toWeekKey } from "@/lib/planning-utils";
 import { AvailabilityGrid } from "./availability-grid";
+import { RailPageHeader, RailPageBody } from "@/components/rail/page-header";
 
 // ─── Helpers ─────────────────────────────────────────────
 
@@ -172,24 +173,21 @@ export default async function DisponibiliteEquipePage() {
   const data = await getData();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Disponibilité équipe
-        </h2>
-        <p className="mt-1 text-muted-foreground">
-          Planification par demi-journée — cliquez ou glissez pour assigner un
-          projet
-        </p>
-      </div>
-
-      <AvailabilityGrid
-        weeks={data.weeks}
-        people={data.people}
-        projects={data.projects}
-        projectStats={data.projectStats}
-        kpis={data.kpis}
+    <>
+      <RailPageHeader
+        eyebrow="Projets"
+        title="Disponibilité équipe"
+        description="Planification par demi-journée — cliquez ou glissez pour assigner un projet"
       />
-    </div>
+      <RailPageBody>
+        <AvailabilityGrid
+          weeks={data.weeks}
+          people={data.people}
+          projects={data.projects}
+          projectStats={data.projectStats}
+          kpis={data.kpis}
+        />
+      </RailPageBody>
+    </>
   );
 }

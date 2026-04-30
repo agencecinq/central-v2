@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/roles";
 import { AdminUsersTable } from "./admin-users-table";
 import { AdminMetiersTable } from "./admin-metiers-table";
+import { RailPageHeader, RailPageBody } from "@/components/rail/page-header";
 
 async function getUsers() {
   const users = await prisma.user.findMany({
@@ -62,18 +63,16 @@ export default async function AdminPage() {
   const [users, metiers, projects] = await Promise.all([getUsers(), getMetiers(), getProjects()]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Administration
-        </h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Gérez les utilisateurs, leurs permissions et les métiers.
-        </p>
-      </div>
-
-      <AdminUsersTable users={users} metiers={metiers} projects={projects} currentUserId={Number(session.user.id)} />
-      <AdminMetiersTable metiers={metiers} />
-    </div>
+    <>
+      <RailPageHeader
+        eyebrow="Configuration"
+        title="Administration"
+        description="Gérez les utilisateurs, leurs permissions et les métiers."
+      />
+      <RailPageBody className="space-y-6">
+        <AdminUsersTable users={users} metiers={metiers} projects={projects} currentUserId={Number(session.user.id)} />
+        <AdminMetiersTable metiers={metiers} />
+      </RailPageBody>
+    </>
   );
 }

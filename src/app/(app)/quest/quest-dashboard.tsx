@@ -159,46 +159,119 @@ export function QuestDashboard({ initialCompletions, initialBadges }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Quest 2026</h2>
-        <p className="mt-1 text-muted-foreground">
-          Plan d&apos;exécution de l&apos;agence CINQ
-        </p>
-      </div>
-
       <Tabs defaultValue="progression">
-        <TabsList>
-          <TabsTrigger value="progression">
-            <Swords className="h-4 w-4 mr-1.5" />
+        <TabsList
+          className="bg-transparent border-0 rounded-none p-0 h-auto gap-0"
+          style={{ borderBottom: "1px solid var(--rail-hair)" }}
+        >
+          <TabsTrigger
+            value="progression"
+            className="
+              relative h-auto rounded-none border-0 bg-transparent
+              px-3 py-2 text-[12.5px] font-medium tracking-normal
+              text-[var(--rail-muted)]
+              data-[state=active]:bg-transparent
+              data-[state=active]:text-[var(--rail-ink)]
+              data-[state=active]:shadow-none
+              data-[state=active]:border-b-2 data-[state=active]:border-[var(--b-accent)]
+              -mb-px
+            "
+            style={{ borderBottom: "2px solid transparent" }}
+          >
+            <Swords className="h-3.5 w-3.5 mr-1.5" />
             Progression
           </TabsTrigger>
-          <TabsTrigger value="manifeste">
-            <Quote className="h-4 w-4 mr-1.5" />
+          <TabsTrigger
+            value="manifeste"
+            className="
+              relative h-auto rounded-none border-0 bg-transparent
+              px-3 py-2 text-[12.5px] font-medium tracking-normal
+              text-[var(--rail-muted)]
+              data-[state=active]:bg-transparent
+              data-[state=active]:text-[var(--rail-ink)]
+              data-[state=active]:shadow-none
+              data-[state=active]:border-b-2 data-[state=active]:border-[var(--b-accent)]
+              -mb-px
+            "
+            style={{ borderBottom: "2px solid transparent" }}
+          >
+            <Quote className="h-3.5 w-3.5 mr-1.5" />
             Manifeste
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="progression" className="mt-6 space-y-6">
-          {/* Global stats */}
-          <Card>
-            <CardContent className="py-6">
-              <div className="flex items-end justify-between mb-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Progression globale</p>
-                  <p className="text-3xl font-bold tabular-nums">{globalPercent}%</p>
-                </div>
-                <p className="text-sm text-muted-foreground tabular-nums">
-                  {completedIds.size} tâches · {earnedPoints}/{TOTAL_POINTS} pts
-                </p>
-              </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
+          {/* Global stats — Rail v2 hero (sombre, accent) */}
+          <div
+            style={{
+              background: "var(--rail-dark)",
+              color: "#fafaf7",
+              borderRadius: 8,
+              padding: "22px 24px",
+              boxShadow: "inset 0 0 0 1px var(--rail-dark-border)",
+            }}
+          >
+            <div className="flex items-end justify-between mb-4">
+              <div>
                 <div
-                  className="h-full rounded-full bg-primary transition-all duration-500"
-                  style={{ width: `${globalPercent}%` }}
-                />
+                  className="text-[11px] tracking-[0.1em] uppercase mb-1.5"
+                  style={{ color: "#a3a39c" }}
+                >
+                  Progression globale · Quest 2026
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <div
+                    className="text-[40px] font-semibold tabular leading-none"
+                    style={{ letterSpacing: "-1px" }}
+                  >
+                    {globalPercent}%
+                  </div>
+                  <div
+                    className="text-[14px]"
+                    style={{
+                      color: "#a3a39c",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    {earnedPoints} / {TOTAL_POINTS} pts
+                  </div>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+              <div className="text-right">
+                <div
+                  className="text-[20px] font-semibold tabular"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
+                  {completedIds.size}
+                </div>
+                <div className="text-[11px] mt-0.5" style={{ color: "#a3a39c" }}>
+                  tâches complétées
+                </div>
+              </div>
+            </div>
+            <div
+              className="h-2 rounded overflow-hidden"
+              style={{ background: "var(--rail-dark-border)" }}
+            >
+              <div
+                className="h-full transition-all duration-500"
+                style={{
+                  width: `${globalPercent}%`,
+                  background: "linear-gradient(90deg, #fafaf7 0%, #d4d4ce 100%)",
+                }}
+              />
+            </div>
+            <div
+              className="mt-3 flex items-center gap-3 text-[11px]"
+              style={{ color: "#a3a39c" }}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Trophy className="h-3 w-3" /> {badges.length} / {QUEST_BADGES.length} badges
+              </span>
+              <span style={{ color: "var(--rail-dark-border)" }}>·</span>
+              <span>{QUEST_PHASES.length} phases · {QUEST_PHASES.reduce((s, p) => s + p.axes.length, 0)} axes</span>
+            </div>
+          </div>
 
           {/* Phases */}
           {QUEST_PHASES.map((phase) => {

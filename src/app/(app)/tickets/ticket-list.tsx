@@ -631,47 +631,87 @@ export function TicketList({
     return s;
   }, [selected, allFilteredIds]);
 
+  // KPIs
+  const kpiTotal = tickets.length;
+  const kpiOuverts = tickets.filter((t) => t.statut === "ouvert").length;
+  const kpiEnCours = tickets.filter((t) => t.statut === "en_cours").length;
+  const kpiResolu = tickets.filter((t) => t.statut === "resolu").length;
+  const kpiMoy = tickets.filter((t) => t.assigneId === currentUserId && t.statut !== "ferme").length;
+
+  const cols = "32px 1.6fr 1fr 110px 130px 120px 110px";
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant={showMine ? "default" : "outline"}
-          size="sm"
+    <div className="space-y-5">
+      {/* KPI strip */}
+      <section className="grid grid-cols-4 gap-4">
+        <RailTicketKpi label="Tickets ouverts" value={kpiOuverts} sub={`${kpiTotal} au total`} tone={kpiOuverts > 5 ? "warn" : "default"} />
+        <RailTicketKpi label="En cours" value={kpiEnCours} sub={`${kpiResolu} résolus`} />
+        <RailTicketKpi label="Résolus" value={kpiResolu} sub={`${Math.round((kpiResolu / Math.max(1, kpiTotal)) * 100)}% du total`} tone="good" />
+        <RailTicketKpi label="Mes tickets actifs" value={kpiMoy} sub="assignés à moi · non fermés" />
+      </section>
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <button
           onClick={() => setShowMine(!showMine)}
+          className="text-[12.5px] font-medium rounded-md transition-colors"
+          style={{
+            padding: "7px 12px",
+            background: showMine ? "var(--b-accent)" : "var(--rail-panel)",
+            color: showMine ? "#fff" : "var(--rail-ink)",
+            border: `1px solid ${showMine ? "var(--b-accent)" : "var(--rail-hair)"}`,
+          }}
         >
           {showMine ? "Mes tickets" : "Tous les tickets"}
-        </Button>
+        </button>
 
-        <div className="flex items-center gap-1 rounded-md border p-0.5">
-          {ALL_STATUTS.map((s) => (
-            <button
-              key={s}
-              onClick={() => toggleStatut(s)}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                activeStatuts.has(s)
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              }`}
-            >
-              {statutLabels[s]}
-            </button>
-          ))}
+        {/* Statut filter chips */}
+        <div
+          className="flex items-center gap-px rounded-md p-0.5"
+          style={{ background: "var(--rail-hair)", border: "1px solid var(--rail-hair)" }}
+        >
+          {ALL_STATUTS.map((s) => {
+            const active = activeStatuts.has(s);
+            return (
+              <button
+                key={s}
+                onClick={() => toggleStatut(s)}
+                className="rounded text-[11.5px] font-medium"
+                style={{
+                  padding: "5px 10px",
+                  background: active ? "var(--rail-panel)" : "transparent",
+                  color: active ? "var(--rail-ink)" : "var(--rail-muted)",
+                  boxShadow: active ? "0 1px 2px rgba(0,0,0,0.04)" : "none",
+                }}
+              >
+                {statutLabels[s]}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex items-center gap-1 rounded-md border p-0.5">
-          {ALL_PROJECT_STATUTS.map((s) => (
-            <button
-              key={s}
-              onClick={() => toggleProjectStatut(s)}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                activeProjectStatuts.has(s)
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              }`}
-            >
-              {projectStatutLabels[s]}
-            </button>
-          ))}
+        <div
+          className="flex items-center gap-px rounded-md p-0.5"
+          style={{ background: "var(--rail-hair)", border: "1px solid var(--rail-hair)" }}
+        >
+          {ALL_PROJECT_STATUTS.map((s) => {
+            const active = activeProjectStatuts.has(s);
+            return (
+              <button
+                key={s}
+                onClick={() => toggleProjectStatut(s)}
+                className="rounded text-[11.5px] font-medium"
+                style={{
+                  padding: "5px 10px",
+                  background: active ? "var(--rail-panel)" : "transparent",
+                  color: active ? "var(--rail-ink)" : "var(--rail-muted)",
+                  boxShadow: active ? "0 1px 2px rgba(0,0,0,0.04)" : "none",
+                }}
+              >
+                {projectStatutLabels[s]}
+              </button>
+            );
+          })}
         </div>
 
         {(showMine || !allStatutsActive || !allProjectStatutsActive) && (
@@ -681,92 +721,129 @@ export function TicketList({
               setActiveStatuts(new Set(ALL_STATUTS));
               setActiveProjectStatuts(new Set(ALL_PROJECT_STATUTS));
             }}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-[12px]"
+            style={{ color: "var(--rail-muted)" }}
           >
             Réinitialiser
           </button>
         )}
 
         <div className="ml-auto flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-[12px]" style={{ color: "var(--rail-muted)" }}>
             {filtered.length} ticket{filtered.length !== 1 ? "s" : ""}
           </span>
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" />
-            Nouveau ticket
-          </Button>
+          <button
+            onClick={() => setDialogOpen(true)}
+            className="inline-flex items-center gap-1.5 text-white rounded-md text-[12.5px] font-medium"
+            style={{ padding: "7px 12px", background: "var(--b-accent)" }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Nouveau ticket
+          </button>
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+        <div
+          className="text-center text-[13px]"
+          style={{
+            padding: "60px 20px",
+            border: "1px dashed var(--rail-hair)",
+            borderRadius: 8,
+            background: "var(--rail-panel)",
+            color: "var(--rail-muted)",
+          }}
+        >
           Aucun ticket trouvé.
         </div>
       ) : (
-        <div className="rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={toggleAll}
-                    aria-label="Sélectionner tout"
-                  />
-                </TableHead>
-                <TableHead>Titre</TableHead>
-                <TableHead>Projet</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Assigné</TableHead>
-                <TableHead>Créé par</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((t) => (
-                <TableRow key={t.id} data-state={selected.has(t.id) ? "selected" : undefined}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(t.id)}
-                      onCheckedChange={() => toggleOne(t.id)}
-                      aria-label={`Sélectionner ${t.titre}`}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <Link
-                      href={`/tickets/${t.id}`}
-                      className="hover:text-primary transition-colors"
-                    >
-                      {t.titre}
-                    </Link>
+        <div
+          className="overflow-hidden"
+          style={{
+            background: "var(--rail-panel)",
+            border: "1px solid var(--rail-hair)",
+            borderRadius: 8,
+          }}
+        >
+          {/* Header */}
+          <div
+            className="grid gap-3 text-[10.5px] uppercase"
+            style={{
+              gridTemplateColumns: cols,
+              padding: "10px 16px",
+              letterSpacing: "0.08em",
+              color: "var(--rail-muted)",
+              background: "var(--rail-hair3)",
+              borderBottom: "1px solid var(--rail-hair2)",
+            }}
+          >
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={toggleAll}
+              aria-label="Sélectionner tout"
+            />
+            <span>Titre</span>
+            <span>Projet</span>
+            <span>Statut</span>
+            <span>Assigné</span>
+            <span>Créé par</span>
+            <span>Date</span>
+          </div>
+          {/* Rows */}
+          {filtered.map((t, i) => {
+            const isSelected = selected.has(t.id);
+            return (
+              <div
+                key={t.id}
+                className="grid gap-3 items-center text-[13px] transition-colors"
+                style={{
+                  gridTemplateColumns: cols,
+                  padding: "10px 16px",
+                  borderTop: i === 0 ? "none" : "1px solid var(--rail-hair2)",
+                  background: isSelected ? "var(--rail-hair3)" : "transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.background = "var(--rail-hair3)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggleOne(t.id)}
+                  aria-label={`Sélectionner ${t.titre}`}
+                />
+                <div className="min-w-0">
+                  <Link
+                    href={`/tickets/${t.id}`}
+                    className="font-medium hover:underline whitespace-nowrap overflow-hidden text-ellipsis inline-flex items-center gap-1.5"
+                  >
+                    {t.titre}
                     {t.attachmentCount > 0 && (
-                      <Paperclip className="ml-1.5 inline h-3.5 w-3.5 text-muted-foreground" />
+                      <Paperclip className="h-3 w-3" style={{ color: "var(--rail-muted2)" }} />
                     )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {t.projectTitre}
-                  </TableCell>
-                  <TableCell>
-                    <InlineStatusSelect ticketId={t.id} statut={t.statut} />
-                  </TableCell>
-                  <TableCell>
-                    <InlineAssigneSelect
-                      ticketId={t.id}
-                      assigneId={t.assigneId}
-                      assigneName={t.assigneName}
-                      users={users}
-                    />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {t.createurName}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(t.createdAt)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </Link>
+                </div>
+                <span
+                  className="whitespace-nowrap overflow-hidden text-ellipsis"
+                  style={{ color: "var(--rail-ink2)" }}
+                >
+                  {t.projectTitre}
+                </span>
+                <InlineStatusSelect ticketId={t.id} statut={t.statut} />
+                <InlineAssigneSelect
+                  ticketId={t.id}
+                  assigneId={t.assigneId}
+                  assigneName={t.assigneName}
+                  users={users}
+                />
+                <span style={{ color: "var(--rail-ink2)" }}>{t.createurName}</span>
+                <span className="text-[12px]" style={{ color: "var(--rail-muted)" }}>
+                  {formatDate(t.createdAt)}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -784,6 +861,67 @@ export function TicketList({
         users={users}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+      />
+    </div>
+  );
+}
+
+// ─── Rail v2 Ticket KPI ──────────────────────────────────
+function RailTicketKpi({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  sub?: string;
+  tone?: "good" | "warn" | "default";
+}) {
+  const accent =
+    tone === "good"
+      ? "var(--rail-success)"
+      : tone === "warn"
+        ? "var(--rail-warn)"
+        : "var(--b-accent)";
+  return (
+    <div
+      style={{
+        background: "var(--rail-panel)",
+        border: "1px solid var(--rail-hair)",
+        borderRadius: 8,
+        padding: "16px 18px 14px",
+      }}
+    >
+      <div
+        className="text-[11px] tracking-[0.06em] uppercase mb-2"
+        style={{ color: "var(--rail-muted)" }}
+      >
+        {label}
+      </div>
+      <div className="flex items-baseline gap-2">
+        <div
+          className="text-[26px] font-semibold tabular leading-tight"
+          style={{
+            letterSpacing: "-0.5px",
+            color: tone === "warn" ? "var(--rail-warn)" : "var(--rail-ink)",
+          }}
+        >
+          {value}
+        </div>
+      </div>
+      {sub && (
+        <div className="mt-1.5 text-[11px]" style={{ color: "var(--rail-muted)" }}>
+          {sub}
+        </div>
+      )}
+      <div
+        className="mt-2.5 h-0.5 rounded"
+        style={{
+          background:
+            value === 0 ? "var(--rail-hair)" : accent,
+          opacity: value === 0 ? 1 : 0.8,
+        }}
       />
     </div>
   );

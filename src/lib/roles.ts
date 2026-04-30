@@ -16,7 +16,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 const ROLE_BLOCKED_ROUTES: Record<Role, string[]> = {
   admin: ["/espace-client"],
   equipe: ["/finance", "/admin", "/espace-client"],
-  client: ["/finance", "/crm", "/projets", "/timetracking", "/admin", "/quest"],
+  client: ["/finance", "/crm", "/projets", "/timetracking", "/admin", "/quest", "/taches"],
 };
 
 export function isAdmin(role: string | undefined): boolean {

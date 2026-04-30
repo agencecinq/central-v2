@@ -3,6 +3,7 @@ import { BarChart3 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { computeBudgetConsomme } from "@/lib/compute-budget";
 import { ProjectList } from "./project-list";
+import { RailPageHeader, RailPageBody } from "@/components/rail/page-header";
 
 export default async function ProjetsPage() {
   const [projects, allClients, users] = await Promise.all([
@@ -73,30 +74,37 @@ export default async function ProjetsPage() {
     name: u.name ?? "",
   }));
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Projets</h2>
-          <p className="mt-1 text-muted-foreground">
-            Gérez vos projets et suivez leur avancement.
-          </p>
-        </div>
-        <Link
-          href="/projets/disponibilite-equipe"
-          className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-        >
-          <BarChart3 className="h-4 w-4" />
-          Disponibilité
-        </Link>
-      </div>
+  const enCours = serialized.filter((p) => p.statut === "en_cours").length;
+  const enAttente = serialized.filter((p) => p.statut === "en_attente").length;
 
-      <ProjectList
-        projects={serialized}
-        clients={clientOptions}
-        allClients={allClientOptions}
-        users={userOptions}
+  return (
+    <>
+      <RailPageHeader
+        eyebrow="Portefeuille"
+        title="Projets"
+        description={`${enCours} en cours · ${enAttente} en attente · ${serialized.length} au total`}
+        actions={
+          <Link
+            href="/projets/disponibilite-equipe"
+            className="inline-flex items-center gap-1.5 rounded-md text-[12.5px] font-medium bg-white"
+            style={{
+              padding: "7px 12px",
+              border: "1px solid var(--rail-hair)",
+            }}
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            Disponibilité
+          </Link>
+        }
       />
-    </div>
+      <RailPageBody>
+        <ProjectList
+          projects={serialized}
+          clients={clientOptions}
+          allClients={allClientOptions}
+          users={userOptions}
+        />
+      </RailPageBody>
+    </>
   );
 }

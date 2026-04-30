@@ -195,192 +195,168 @@ export default async function ProjectDetailPage({
     taskTitre: te.task?.titre ?? null,
   }));
 
+  const statutTone =
+    project.statut === "en_cours"
+      ? { c: "var(--rail-success)", bg: "var(--rail-success-bg)" }
+      : project.statut === "termine"
+        ? { c: "var(--rail-info)", bg: "var(--rail-info-bg)" }
+        : { c: "var(--rail-warn)", bg: "var(--rail-warn-bg)" };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/projets"
-          className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-semibold tracking-tight">
-              {project.titre}
-            </h2>
-            <Badge variant={statutVariants[project.statut] ?? "secondary"}>
-              {statutLabels[project.statut] ?? project.statut}
-            </Badge>
-          </div>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {project.client?.entreprise ?? project.client?.nom ?? "Sans client"}
-            {project.chefProjet && ` · ${project.chefProjet.name}`}
-            {deal && ` · Deal: ${deal.titre}`}
-          </p>
-        </div>
-        <ProjectHeaderActions
-          project={projectData}
-          clients={clientOptions}
-          users={users.map((u) => ({ id: u.id, name: u.name ?? "" }))}
-          deals={dealOptions}
-        />
-      </div>
-
-      <div className={`grid gap-4 sm:grid-cols-2 ${deal ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Budget
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold tabular-nums">
-              {formatCurrency(budgetConsomme)}
-              <span className="text-sm font-normal text-muted-foreground">
-                {" "}/ {formatCurrency(budgetTotal)}
-              </span>
-            </p>
-            <div className="mt-2 h-1.5 rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${budgetPct}%` }}
-              />
-            </div>
-            {(budgetBreakdown.depenses > 0 || budgetBreakdown.temps > 0) && (
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                {budgetBreakdown.depenses > 0 && (
-                  <span>{formatCurrency(budgetBreakdown.depenses)} dépenses</span>
-                )}
-                {budgetBreakdown.depenses > 0 && budgetBreakdown.temps > 0 && (
-                  <span> · </span>
-                )}
-                {budgetBreakdown.temps > 0 && (
-                  <span>{formatCurrency(budgetBreakdown.temps)} temps</span>
-                )}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {deal && montantSigne !== null && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Facturation
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold tabular-nums">
-                {formatCurrency(totalFacture)}
-                <span className="text-sm font-normal text-muted-foreground">
-                  {" "}/ {formatCurrency(montantSigne)}
+    <>
+      {/* Header sticky */}
+      <div
+        className="sticky top-0 z-10"
+        style={{
+          borderBottom: "1px solid var(--rail-hair)",
+          background: "var(--rail-panel)",
+        }}
+      >
+        <div className="px-7 pt-3.5 pb-3.5">
+          <Link
+            href="/projets"
+            className="inline-flex items-center gap-1.5 text-[12px]"
+            style={{ color: "var(--rail-muted)" }}
+          >
+            <ArrowLeft className="h-3 w-3" /> Projets
+          </Link>
+          <div className="mt-2 flex items-end justify-between gap-5">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <h1 className="m-0 text-[22px] font-semibold" style={{ letterSpacing: "-0.4px" }}>
+                  {project.titre}
+                </h1>
+                <span
+                  className="text-[10.5px] uppercase font-medium"
+                  style={{
+                    padding: "3px 7px",
+                    background: statutTone.bg,
+                    color: statutTone.c,
+                    borderRadius: 3,
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {statutLabels[project.statut] ?? project.statut}
                 </span>
-              </p>
-              <div className="mt-2 h-1.5 rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-blue-500 transition-all"
-                  style={{ width: `${facturePct}%` }}
-                />
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tâches
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold tabular-nums">
-              {tasks.filter((t) => t.statutKanban === "done").length}
-              <span className="text-sm font-normal text-muted-foreground">
-                {" "}/ {tasks.length}
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Début
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              {formatDate(project.dateDebut)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Deadline
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              {formatDate(project.deadline)}
-            </p>
-          </CardContent>
-        </Card>
+              <p
+                className="mt-1 text-[13px]"
+                style={{ color: "var(--rail-muted)" }}
+              >
+                {project.client?.entreprise ?? project.client?.nom ?? "Sans client"}
+                {project.chefProjet && ` · ${project.chefProjet.name}`}
+                {deal && ` · Deal: ${deal.titre}`}
+              </p>
+            </div>
+            <ProjectHeaderActions
+              project={projectData}
+              clients={clientOptions}
+              users={users.map((u) => ({ id: u.id, name: u.name ?? "" }))}
+              deals={dealOptions}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Linked invoices from deal */}
+      <div className="space-y-6 px-7 pt-5 pb-12">
+        {/* KPI strip — Rail v2 */}
+        <div className={`grid gap-4 sm:grid-cols-2 ${deal ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+          <RailKpi label="Budget" main={formatCurrency(budgetConsomme)} sub={`/ ${formatCurrency(budgetTotal)}`} pct={budgetPct} subline={
+            (budgetBreakdown.depenses > 0 || budgetBreakdown.temps > 0)
+              ? [
+                  budgetBreakdown.depenses > 0 ? `${formatCurrency(budgetBreakdown.depenses)} dépenses` : "",
+                  budgetBreakdown.temps > 0 ? `${formatCurrency(budgetBreakdown.temps)} temps` : "",
+                ].filter(Boolean).join(" · ")
+              : undefined
+          } tone={budgetPct > 95 ? "danger" : budgetPct > 80 ? "warn" : "default"} />
+          {deal && montantSigne !== null && (
+            <RailKpi label="Facturation" main={formatCurrency(totalFacture)} sub={`/ ${formatCurrency(montantSigne)}`} pct={facturePct} tone="info" />
+          )}
+          <RailKpi label="Tâches" main={`${tasks.filter((t) => t.statutKanban === "done").length}`} sub={`/ ${tasks.length}`} pct={tasks.length > 0 ? Math.round((tasks.filter((t) => t.statutKanban === "done").length / tasks.length) * 100) : 0} />
+          <RailKpi label="Début" main={formatDate(project.dateDebut)} />
+          <RailKpi label="Deadline" main={formatDate(project.deadline)} />
+        </div>
+
+      {/* Linked invoices from deal — Rail v2 panel */}
       {deal && deal.dealFactures.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">
-              Factures liées
-              {resteAFacturer !== null && resteAFacturer > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  · Reste à facturer : {formatCurrency(resteAFacturer)}
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="px-4 py-2.5 font-medium">N°</th>
-                    <th className="px-4 py-2.5 font-medium">Client</th>
-                    <th className="px-4 py-2.5 font-medium text-right">
-                      Montant HT
-                    </th>
-                    <th className="px-4 py-2.5 font-medium">Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {deal.dealFactures.map((df) => (
-                    <tr key={df.id} className="hover:bg-muted/50">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-mono text-xs">{df.numero}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-muted-foreground">
-                        {df.clientNom}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-medium">
-                        {formatCurrency(Number(df.montantHT))}
-                      </td>
-                      <td className="px-4 py-2.5 text-muted-foreground">
-                        {df.dateFacture
-                          ? formatDate(df.dateFacture)
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <section
+          className="overflow-hidden"
+          style={{
+            background: "var(--rail-panel)",
+            border: "1px solid var(--rail-hair)",
+            borderRadius: 8,
+          }}
+        >
+          <header
+            className="flex items-center justify-between"
+            style={{
+              padding: "12px 18px",
+              borderBottom: "1px solid var(--rail-hair)",
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-semibold">Factures liées</span>
+              <span className="text-[11.5px]" style={{ color: "var(--rail-muted)" }}>
+                · {deal.dealFactures.length} facture{deal.dealFactures.length > 1 ? "s" : ""}
+              </span>
             </div>
-          </CardContent>
-        </Card>
+            {resteAFacturer !== null && resteAFacturer > 0 && (
+              <span className="text-[11.5px]" style={{ color: "var(--rail-warn)" }}>
+                Reste à facturer : <strong>{formatCurrency(resteAFacturer)}</strong>
+              </span>
+            )}
+          </header>
+          <div>
+            <div
+              className="grid gap-3 text-[10.5px] uppercase"
+              style={{
+                gridTemplateColumns: "120px 1fr 140px 120px",
+                padding: "8px 18px",
+                letterSpacing: "0.08em",
+                color: "var(--rail-muted)",
+                background: "var(--rail-hair3)",
+                borderBottom: "1px solid var(--rail-hair2)",
+              }}
+            >
+              <span>N°</span>
+              <span>Client</span>
+              <span className="text-right">Montant HT</span>
+              <span>Date</span>
+            </div>
+            {deal.dealFactures.map((df, i) => (
+              <div
+                key={df.id}
+                className="grid gap-3 items-center text-[13px]"
+                style={{
+                  gridTemplateColumns: "120px 1fr 140px 120px",
+                  padding: "10px 18px",
+                  borderTop: i === 0 ? "none" : "1px solid var(--rail-hair2)",
+                }}
+              >
+                <span
+                  className="inline-flex items-center gap-1.5 text-[11.5px]"
+                  style={{ fontFamily: "var(--font-mono)", color: "var(--rail-ink2)" }}
+                >
+                  <Link2 className="h-3 w-3" style={{ color: "var(--rail-muted2)" }} />
+                  {df.numero}
+                </span>
+                <span style={{ color: "var(--rail-ink2)" }}>{df.clientNom}</span>
+                <span
+                  className="text-right font-medium"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
+                  {formatCurrency(Number(df.montantHT))}
+                </span>
+                <span
+                  className="text-[12px]"
+                  style={{ color: "var(--rail-muted)" }}
+                >
+                  {df.dateFacture ? formatDate(df.dateFacture) : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <ProjectTabs
@@ -412,6 +388,88 @@ export default async function ProjectDetailPage({
         widgetToken={project.widgetToken}
         appUrl={process.env.NEXT_PUBLIC_APP_URL || "https://app.cinqteam.com"}
       />
+      </div>
+    </>
+  );
+}
+
+// ─── Rail KPI Card (no sparkline) ─────────────────────────
+function RailKpi({
+  label,
+  main,
+  sub,
+  pct,
+  subline,
+  tone,
+}: {
+  label: string;
+  main: string;
+  sub?: string;
+  pct?: number;
+  subline?: string;
+  tone?: "default" | "warn" | "danger" | "info";
+}) {
+  const barColor =
+    tone === "danger"
+      ? "var(--rail-danger)"
+      : tone === "warn"
+        ? "var(--rail-warn)"
+        : tone === "info"
+          ? "var(--rail-info)"
+          : "var(--b-accent)";
+  return (
+    <div
+      style={{
+        background: "var(--rail-panel)",
+        border: "1px solid var(--rail-hair)",
+        borderRadius: 8,
+        padding: "16px 18px 14px",
+      }}
+    >
+      <div
+        className="text-[11px] tracking-[0.06em] uppercase mb-2"
+        style={{ color: "var(--rail-muted)" }}
+      >
+        {label}
+      </div>
+      <div className="flex items-baseline gap-1.5">
+        <span
+          className="text-[22px] font-semibold tabular leading-tight"
+          style={{ letterSpacing: "-0.4px" }}
+        >
+          {main}
+        </span>
+        {sub && (
+          <span
+            className="text-[12px]"
+            style={{ color: "var(--rail-muted)", fontFamily: "var(--font-mono)" }}
+          >
+            {sub}
+          </span>
+        )}
+      </div>
+      {pct !== undefined && (
+        <div
+          className="mt-2.5 h-1 rounded overflow-hidden"
+          style={{ background: "var(--rail-hair)" }}
+        >
+          <div
+            className="h-full"
+            style={{
+              width: `${Math.min(100, Math.max(0, pct))}%`,
+              background: barColor,
+            }}
+          />
+        </div>
+      )}
+      {subline && (
+        <div
+          className="mt-1.5 text-[11px]"
+          style={{ color: "var(--rail-muted)" }}
+        >
+          {subline}
+        </div>
+      )}
     </div>
   );
 }

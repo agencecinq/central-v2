@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TimeTracker } from "./time-tracker";
+import { RailPageHeader, RailPageBody } from "@/components/rail/page-header";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -114,22 +115,22 @@ export default async function TimetrackingPage() {
   const data = await getTimetrackingData(userId);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Timetracking</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Suivez le temps passé sur vos projets et tâches.
-        </p>
-      </div>
-
-      <TimeTracker
-        currentWeek={currentWeek}
-        currentUserId={userId}
-        projects={data.projects}
-        tasks={data.tasks}
-        entries={data.entries}
-        users={data.users}
+    <>
+      <RailPageHeader
+        eyebrow={`Semaine ${currentWeek.replace("-W", " · S")}`}
+        title="Temps"
+        description="Suivez le temps passé sur vos projets et tâches."
       />
-    </div>
+      <RailPageBody>
+        <TimeTracker
+          currentWeek={currentWeek}
+          currentUserId={userId}
+          projects={data.projects}
+          tasks={data.tasks}
+          entries={data.entries}
+          users={data.users}
+        />
+      </RailPageBody>
+    </>
   );
 }

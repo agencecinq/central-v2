@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { SalesPipeline } from "./sales-pipeline";
 import { SignedRevenueTable } from "./signed-revenue-table";
+import { RailPageHeader, RailPageBody } from "@/components/rail/page-header";
 
 export default async function CrmPage() {
   const [deals, clients] = await Promise.all([
@@ -30,10 +31,20 @@ export default async function CrmPage() {
     name: c.entreprise || c.nom,
   }));
 
+  const wonDeals = serializedDeals.filter((d) => d.etape === "Gagné").length;
+  const activeDeals = serializedDeals.filter((d) => d.etape !== "Gagné" && d.etape !== "Perdu").length;
+
   return (
-    <div className="space-y-6">
-      <SignedRevenueTable deals={serializedDeals} />
-      <SalesPipeline deals={serializedDeals} clients={clientOptions} />
-    </div>
+    <>
+      <RailPageHeader
+        eyebrow="Pipeline commercial"
+        title="CRM"
+        description={`${activeDeals} deal${activeDeals > 1 ? "s" : ""} actif${activeDeals > 1 ? "s" : ""} · ${wonDeals} signé${wonDeals > 1 ? "s" : ""}`}
+      />
+      <RailPageBody className="space-y-6">
+        <SignedRevenueTable deals={serializedDeals} />
+        <SalesPipeline deals={serializedDeals} clients={clientOptions} />
+      </RailPageBody>
+    </>
   );
 }

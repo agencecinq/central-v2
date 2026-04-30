@@ -60,7 +60,7 @@ export default async function DealDetailPage({
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-7 pt-6 pb-12">
       {/* Back link */}
       <Link
         href="/crm"

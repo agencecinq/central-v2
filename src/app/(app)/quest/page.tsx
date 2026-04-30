@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuestDashboard } from "./quest-dashboard";
+import { RailPageHeader, RailPageBody } from "@/components/rail/page-header";
 
 export default async function QuestPage() {
   const session = await auth();
@@ -30,9 +31,18 @@ export default async function QuestPage() {
   }));
 
   return (
-    <QuestDashboard
-      initialCompletions={initialCompletions}
-      initialBadges={initialBadges}
-    />
+    <>
+      <RailPageHeader
+        eyebrow="Plan d'exécution"
+        title="Quest"
+        description="Plan stratégique gamifié — phases, axes, tâches, badges."
+      />
+      <RailPageBody>
+        <QuestDashboard
+          initialCompletions={initialCompletions}
+          initialBadges={initialBadges}
+        />
+      </RailPageBody>
+    </>
   );
 }
