@@ -112,6 +112,9 @@ export default async function ProjectDetailPage({
     deadline: project.deadline?.toISOString() ?? null,
     githubUrl: project.githubUrl,
     figmaUrl: project.figmaUrl,
+    slackChannelId: project.slackChannelId,
+    repoDefaultBranch: project.repoDefaultBranch,
+    autoResolveEnabled: project.autoResolveEnabled,
   };
 
   const clientOptions = clients.map((c) => ({
