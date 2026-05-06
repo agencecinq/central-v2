@@ -1,7 +1,9 @@
 import { Queue } from "bullmq";
 import { getRedisConnection } from "./redis.js";
 
-export const TICKET_QUEUE_NAME = "auto-resolve:tickets";
+// BullMQ ≥5.x rejects `:` in queue names (reserved for internal Redis key
+// separators), so we use a hyphenated name.
+export const TICKET_QUEUE_NAME = "auto-resolve-tickets";
 
 export type TicketJobData = {
   ticketId: number;
