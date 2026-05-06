@@ -55,7 +55,7 @@ services:
 
   - type: web
     name: cinq-auto-resolve-worker
-    runtime: image
+    runtime: docker
     region: frankfurt
     plan: starter
     branch: main
