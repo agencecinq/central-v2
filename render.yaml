@@ -39,3 +39,84 @@ services:
         sync: false
       - key: AUTH_TRUST_HOST
         value: "true"
+      # ─── Auto-Resolve (côté CinqCentral) ─────────────────────────
+      # URL du worker — récupérée depuis le service Render correspondant.
+      - key: AUTORESOLVE_WORKER_URL
+        fromService:
+          name: cinq-auto-resolve-worker
+          type: web
+          property: host
+      # Secrets partagés worker ↔ CinqCentral. À remplir dans le dashboard
+      # (mêmes valeurs des deux côtés).
+      - key: AUTORESOLVE_WEBHOOK_SECRET
+        sync: false
+      - key: AUTORESOLVE_INTERNAL_TOKEN
+        sync: false
+
+  - type: web
+    name: cinq-auto-resolve-worker
+    runtime: image
+    region: frankfurt
+    plan: starter
+    branch: main
+    rootDir: worker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: LOG_LEVEL
+        value: info
+      # ─── Redis (BullMQ) ────────────────────────────────────────
+      - key: REDIS_URL
+        fromService:
+          name: cinq-auto-resolve-redis
+          type: keyvalue
+          property: connectionString
+      # ─── Auth partagée avec CinqCentral ────────────────────────
+      - key: CINQCENTRAL_BASE_URL
+        sync: false  # ex: https://cinq-central.onrender.com
+      - key: AUTORESOLVE_WEBHOOK_SECRET
+        sync: false  # même valeur que côté cinq-central
+      - key: AUTORESOLVE_INTERNAL_TOKEN
+        sync: false  # idem
+      # ─── Anthropic ─────────────────────────────────────────────
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_CLASSIFIER_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: AGENT_MODEL
+        value: claude-sonnet-4-6
+      - key: AGENT_TIMEOUT_MS
+        value: "900000"
+      - key: AGENT_MAX_TURNS
+        value: "40"
+      # ─── GitHub ────────────────────────────────────────────────
+      - key: GITHUB_PAT
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      # ─── Slack ─────────────────────────────────────────────────
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: SLACK_INTERNAL_CHANNEL_ID
+        sync: false
+      # ─── Workdir & cache ───────────────────────────────────────
+      - key: WORK_DIR
+        value: /tmp/auto-resolve
+      - key: STACK_CACHE_DAYS
+        value: "7"
+      # ─── Mode dry-run ──────────────────────────────────────────
+      # Phase 4: agent tourne mais pas de push GitHub. Passer à false en Phase 5.
+      - key: DRY_RUN
+        value: "true"
+      - key: MONTHLY_BUDGET_USD
+        value: "200"
+
+  - type: keyvalue
+    name: cinq-auto-resolve-redis
+    region: frankfurt
+    plan: free
+    ipAllowList: []  # accessible uniquement depuis le réseau privé Render

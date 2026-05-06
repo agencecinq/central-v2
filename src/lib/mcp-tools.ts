@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { emitTicketCreatedWebhook } from "@/lib/auto-resolve-webhook";
 import { randomBytes } from "crypto";
 
 function dec(v: unknown): number {
@@ -968,6 +969,11 @@ export function createMcpServer(): McpServer {
           createurId: createurId ?? null,
           assigneId: assigneId ?? null,
         },
+      });
+      emitTicketCreatedWebhook({
+        ticketId: ticket.id,
+        projectId,
+        actorUserId: createurId ?? null,
       });
       return {
         content: [

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { emitTicketCreatedWebhook } from "@/lib/auto-resolve-webhook";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
@@ -93,6 +94,12 @@ export async function POST(request: Request) {
         createdAt: new Date(),
         updatedAt: new Date(),
       },
+    });
+
+    emitTicketCreatedWebhook({
+      ticketId: ticket.id,
+      projectId: project.id,
+      actorEmail: userEmail || null,
     });
 
     // 9. Handle file upload (optional)
