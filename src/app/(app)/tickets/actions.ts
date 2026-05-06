@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { emitTicketCreatedWebhook } from "@/lib/auto-resolve-webhook";
 import { revalidatePath } from "next/cache";
 import { unlink } from "fs/promises";
 import path from "path";
@@ -65,6 +66,12 @@ export async function createTicket(formData: FormData) {
       tailleEcran: (formData.get("tailleEcran") as string)?.trim() || null,
       metaInfo: (formData.get("metaInfo") as string)?.trim() || null,
     },
+  });
+
+  emitTicketCreatedWebhook({
+    ticketId: ticket.id,
+    projectId,
+    actorUserId: userId,
   });
 
   revalidatePath("/tickets");

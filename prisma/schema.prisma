@@ -188,6 +188,10 @@ model Project {
   isPersonnel       Boolean   @default(false) @map("is_personnel")
   isAgence          Boolean   @default(false) @map("is_agence")
   widgetToken       String?   @unique @map("widget_token") @db.VarChar(255)
+  repoDefaultBranch    String?   @map("repo_default_branch") @db.VarChar(100)
+  autoResolveEnabled   Boolean   @default(false) @map("auto_resolve_enabled")
+  detectedStack        Json?     @map("detected_stack")
+  detectedStackAt      DateTime? @map("detected_stack_at")
   createdAt         DateTime? @map("created_at")
   updatedAt         DateTime? @map("updated_at")
 
@@ -335,6 +339,10 @@ model Ticket {
   navigateur  String?   @db.VarChar(255)
   tailleEcran String?   @map("taille_ecran") @db.VarChar(50)
   metaInfo    String?   @map("meta_info") @db.Text
+  autoResolveStatus     String?   @map("auto_resolve_status") @db.VarChar(20)
+  autoResolvePrUrl      String?   @map("auto_resolve_pr_url") @db.VarChar(500)
+  autoResolveSkipReason String?   @map("auto_resolve_skip_reason") @db.Text
+  autoResolveRunId      String?   @map("auto_resolve_run_id") @db.VarChar(36)
   createdAt   DateTime? @map("created_at")
   updatedAt   DateTime? @map("updated_at")
 
@@ -343,8 +351,34 @@ model Ticket {
   assigne     User?     @relation("TicketAssigne", fields: [assigneId], references: [id])
   attachments TicketAttachment[]
   comments    TicketComment[]
+  autoResolveRuns AutoResolveRun[]
 
   @@map("tickets")
+}
+
+// ─── Auto-Resolve ──────────────────────────────────────────
+
+model AutoResolveRun {
+  id            String    @id @db.VarChar(36)
+  ticketId      Int       @map("ticket_id")
+  status        String    @db.VarChar(20)
+  startedAt     DateTime  @default(now()) @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+  branchName    String?   @map("branch_name") @db.VarChar(200)
+  commitSha     String?   @map("commit_sha") @db.VarChar(40)
+  prNumber      Int?      @map("pr_number")
+  prUrl         String?   @map("pr_url") @db.VarChar(500)
+  slackTs       String?   @map("slack_ts") @db.VarChar(50)
+  tokensInput   Int?      @map("tokens_input")
+  tokensOutput  Int?      @map("tokens_output")
+  costUsd       Decimal?  @map("cost_usd") @db.Decimal(10, 4)
+  agentSummary  String?   @map("agent_summary") @db.Text
+  error         String?   @db.Text
+
+  ticket        Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("auto_resolve_runs")
 }
 
 model TicketAttachment {
