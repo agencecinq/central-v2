@@ -32,8 +32,15 @@ export function emitTicketCreatedWebhook(payload: {
 
   const signature = createHmac("sha256", secret).update(body).digest("hex");
 
+  // Render's `fromService.host` can return just the hostname (no scheme),
+  // so we prepend https:// when missing.
+  const base = (/^https?:\/\//i.test(url) ? url : `https://${url}`).replace(
+    /\/$/,
+    "",
+  );
+
   // Fire-and-forget. Catch any error to avoid unhandled rejection.
-  fetch(`${url.replace(/\/$/, "")}/webhooks/cinqcentral/ticket-created`, {
+  fetch(`${base}/webhooks/cinqcentral/ticket-created`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
