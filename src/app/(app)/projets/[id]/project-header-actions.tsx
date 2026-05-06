@@ -21,6 +21,9 @@ interface ProjectData {
   deadline: string | null;
   githubUrl: string | null;
   figmaUrl: string | null;
+  slackChannelId: string | null;
+  repoDefaultBranch: string | null;
+  autoResolveEnabled: boolean;
 }
 
 interface ClientOption {

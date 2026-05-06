@@ -106,6 +106,11 @@ export async function updateProject(projectId: number, formData: FormData) {
         : null,
       githubUrl: (formData.get("githubUrl") as string)?.trim() || null,
       figmaUrl: (formData.get("figmaUrl") as string)?.trim() || null,
+      slackChannelId:
+        (formData.get("slackChannelId") as string)?.trim() || null,
+      repoDefaultBranch:
+        (formData.get("repoDefaultBranch") as string)?.trim() || null,
+      autoResolveEnabled: formData.get("autoResolveEnabled") === "on",
     },
   });
 

@@ -34,6 +34,9 @@ interface ProjectData {
   deadline: string | null;
   githubUrl: string | null;
   figmaUrl: string | null;
+  slackChannelId: string | null;
+  repoDefaultBranch: string | null;
+  autoResolveEnabled: boolean;
 }
 
 interface ClientOption {
@@ -283,7 +286,7 @@ export function ProjectDialog({
                 id="githubUrl"
                 name="githubUrl"
                 type="url"
-                placeholder="https://github.com/..."
+                placeholder="https://github.com/agencecinq/..."
                 defaultValue={project.githubUrl ?? ""}
               />
             </div>
@@ -296,6 +299,50 @@ export function ProjectDialog({
                 placeholder="https://figma.com/..."
                 defaultValue={project.figmaUrl ?? ""}
               />
+            </div>
+          </div>
+
+          <div className="border-t pt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Auto-Resolve</h3>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="autoResolveEnabled"
+                  defaultChecked={project.autoResolveEnabled}
+                  className="size-4 rounded border-input"
+                />
+                Activé
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Si activé, chaque ticket créé déclenche un agent qui peut
+              ouvrir une PR draft sur le repo. Nécessite que le GitHub URL
+              ci-dessus soit sous{" "}
+              <code className="text-foreground">
+                github.com/agencecinq/*
+              </code>
+              .
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="repoDefaultBranch">Branche cible PR</Label>
+                <Input
+                  id="repoDefaultBranch"
+                  name="repoDefaultBranch"
+                  placeholder="main"
+                  defaultValue={project.repoDefaultBranch ?? ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="slackChannelId">Slack channel ID</Label>
+                <Input
+                  id="slackChannelId"
+                  name="slackChannelId"
+                  placeholder="C04ABCD1234"
+                  defaultValue={project.slackChannelId ?? ""}
+                />
+              </div>
             </div>
           </div>
 
