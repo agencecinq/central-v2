@@ -1,20 +1,31 @@
-FROM node:20-alpine AS deps
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=optional
 
-FROM node:20-alpine AS build
+FROM node:20-bookworm-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS runtime
+FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+
 # git: required by simple-git for cloning
-# gitleaks: pre-commit secret scanner (spec §7.5)
-RUN apk add --no-cache git gitleaks
+# gitleaks: pre-commit secret scanner (spec §7.5) — fetched from the
+# official GitHub release. Alpine apk doesn't ship gitleaks in its main
+# repo, and the official binary is glibc-linked (incompatible with musl),
+# so the runtime image is Debian-based.
+ARG GITLEAKS_VERSION=8.21.4
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git ca-certificates curl \
+  && curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+     | tar -xz -C /usr/local/bin gitleaks \
+  && apt-get purge -y --auto-remove curl \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json ./
