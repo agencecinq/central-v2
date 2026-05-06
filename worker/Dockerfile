@@ -1,7 +1,10 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install --omit=optional
+# `npm ci` honors optional deps — required because @anthropic-ai/claude-agent-sdk
+# ships its native CLI binaries (one per platform) as optionalDependencies.
+# Stripping them with --omit=optional leaves the SDK unable to spawn the agent.
+RUN npm ci
 
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
