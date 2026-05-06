@@ -118,5 +118,5 @@ services:
   - type: keyvalue
     name: cinq-auto-resolve-redis
     region: frankfurt
-    plan: free
+    plan: starter
     ipAllowList: []  # accessible uniquement depuis le réseau privé Render
