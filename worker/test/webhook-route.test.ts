@@ -22,7 +22,7 @@ Object.assign(process.env, TEST_ENV);
 const enqueueMock = vi.fn().mockResolvedValue({ id: "fake-job-id" });
 vi.mock("../src/queue/index.js", () => ({
   enqueueTicket: (data: unknown) => enqueueMock(data),
-  TICKET_QUEUE_NAME: "auto-resolve:tickets",
+  TICKET_QUEUE_NAME: "auto-resolve-tickets",
 }));
 
 const { buildApp } = await import("../src/server/app.js");

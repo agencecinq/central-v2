@@ -19,7 +19,7 @@ Object.assign(process.env, TEST_ENV);
 // Mock the queue (same trick as webhook-route.test.ts).
 vi.mock("../src/queue/index.js", () => ({
   enqueueTicket: vi.fn().mockResolvedValue({ id: "fake" }),
-  TICKET_QUEUE_NAME: "auto-resolve:tickets",
+  TICKET_QUEUE_NAME: "auto-resolve-tickets",
 }));
 // Mock the CI feedback handler — we just want to assert it gets called.
 const handleCiFeedbackMock = vi.fn().mockResolvedValue({
