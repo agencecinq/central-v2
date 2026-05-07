@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { canAccessRoute } from "@/lib/roles";
+import { IMPERSONATION_COOKIE } from "@/lib/impersonation";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -45,7 +46,14 @@ export async function middleware(req: NextRequest) {
   if (isAuthenticated && !isLoginPage) {
     const role = token.role as string | undefined;
 
-    if (!canAccessRoute(role, pathname)) {
+    // Exception : admin/équipe peut accéder à /espace-client en mode prévisualisation
+    // (la validation cryptographique du cookie est faite dans requireClient)
+    const isImpersonating =
+      (role === "admin" || role === "equipe") &&
+      pathname.startsWith("/espace-client") &&
+      !!req.cookies.get(IMPERSONATION_COOKIE);
+
+    if (!isImpersonating && !canAccessRoute(role, pathname)) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }

@@ -65,7 +65,7 @@ export default async function ProjectDetailPage({
 
   if (!project) notFound();
 
-  const [users, clients, deals, rawPhases, metiers, rawUserMetiers] = await Promise.all([
+  const [users, clients, deals, rawPhases, metiers, rawUserMetiers, rawResources] = await Promise.all([
     prisma.user.findMany({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -95,6 +95,10 @@ export default async function ProjectDetailPage({
         metierId: true,
         user: { select: { id: true, name: true } },
       },
+    }),
+    prisma.projectResource.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -383,6 +387,16 @@ export default async function ProjectDetailPage({
           userId: um.userId,
           metierId: um.metierId,
           userName: um.user.name,
+        }))}
+        resources={rawResources.map((r) => ({
+          id: r.id,
+          type: r.type as "document" | "html_page" | "external_link",
+          name: r.name,
+          filepath: r.filepath,
+          url: r.url,
+          mimetype: r.mimetype,
+          size: r.size,
+          createdAt: r.createdAt.toISOString(),
         }))}
       />
 
