@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { getUploadsBaseDir } from "@/lib/uploads";
 
 export async function POST(
   request: Request,
@@ -60,14 +61,8 @@ export async function POST(
     }
   }
 
-  const uploadDir = path.join(
-    process.cwd(),
-    "public",
-    "uploads",
-    "projects",
-    String(projectId),
-    "resources",
-  );
+  const relDir = path.join("projects", String(projectId), "resources");
+  const uploadDir = path.join(getUploadsBaseDir(), relDir);
   await mkdir(uploadDir, { recursive: true });
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -77,7 +72,8 @@ export async function POST(
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(filepath, buffer);
 
-  const dbFilepath = `/uploads/projects/${projectId}/resources/${filename}`;
+  // Chemin relatif stocké en base (jamais d'absolu, pour rester portable)
+  const dbFilepath = path.join(relDir, filename);
 
   const resource = await prisma.projectResource.create({
     data: {

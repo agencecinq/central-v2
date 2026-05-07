@@ -65,9 +65,10 @@ function typeMeta(type: ResourceItem["type"]) {
   }
 }
 
-function getResourceHref(r: ResourceItem): string | null {
+function getResourceHref(r: ResourceItem, projectId: number): string | null {
   if (r.type === "external_link") return r.url;
-  return r.filepath;
+  if (!r.filepath) return null;
+  return `/api/projects/${projectId}/resources/${r.id}/file`;
 }
 
 export function ResourcesTab({
@@ -132,7 +133,7 @@ export function ResourcesTab({
           {resources.map((r) => {
             const meta = typeMeta(r.type);
             const Icon = meta.icon;
-            const href = getResourceHref(r);
+            const href = getResourceHref(r, projectId);
             return (
               <div
                 key={r.id}

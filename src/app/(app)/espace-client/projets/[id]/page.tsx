@@ -227,7 +227,12 @@ export default async function ClientProjectDetailPage({
                   : r.type === "external_link"
                     ? Link2
                     : FileIcon;
-              const href = r.type === "external_link" ? r.url : r.filepath;
+              const href =
+                r.type === "external_link"
+                  ? r.url
+                  : r.filepath
+                    ? `/api/projects/${project.id}/resources/${r.id}/file`
+                    : null;
               const typeLabel =
                 r.type === "html_page"
                   ? "Page HTML"
