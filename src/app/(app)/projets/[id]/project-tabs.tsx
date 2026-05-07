@@ -31,6 +31,7 @@ import { DeleteDialog } from "./delete-dialog";
 import { GanttChart } from "./gantt-chart";
 import { TaskDialog } from "./task-dialog";
 import { TransactionDialog } from "./transaction-dialog";
+import { ResourcesTab, type ResourceItem } from "./resources-tab";
 
 interface Task {
   id: number;
@@ -196,6 +197,7 @@ export function ProjectTabs({
   phases,
   metiers,
   userMetiers,
+  resources,
 }: {
   projectId: number;
   tasks: Task[];
@@ -205,6 +207,7 @@ export function ProjectTabs({
   phases: PhaseItem[];
   metiers: MetierOption[];
   userMetiers: UserMetierOption[];
+  resources: ResourceItem[];
 }) {
   const depenses = transactions.filter((t) => t.type === "depense");
   const revenus = transactions.filter((t) => t.type === "revenu");
@@ -291,6 +294,7 @@ export function ProjectTabs({
           <RailTabTrigger value="transactions" label="Dépenses" count={String(transactions.length)} />
           <RailTabTrigger value="temps" label="Temps passé" count={String(timeEntries.length)} />
           <RailTabTrigger value="planning" label="Planning" count={String(phases.length)} />
+          <RailTabTrigger value="ressources" label="Ressources" count={String(resources.length)} />
         </TabsList>
 
         <TabsContent value="tasks" className="mt-4 space-y-4">
@@ -562,6 +566,10 @@ export function ProjectTabs({
 
         <TabsContent value="planning" className="mt-4 space-y-4">
           <PlanningTab projectId={projectId} tasks={tasks} users={users} phases={phases} metiers={metiers} userMetiers={userMetiers} />
+        </TabsContent>
+
+        <TabsContent value="ressources" className="mt-4 space-y-4">
+          <ResourcesTab projectId={projectId} resources={resources} />
         </TabsContent>
       </Tabs>
 

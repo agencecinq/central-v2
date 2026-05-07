@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Ticket } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  File as FileIcon,
+  FileCode,
+  Link2,
+  Ticket,
+} from "lucide-react";
 import { requireClient } from "@/lib/require-client";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +84,7 @@ export default async function ClientProjectDetailPage({
         include: { metier: { select: { nom: true } } },
         orderBy: { dateDebut: "asc" },
       },
+      resources: { orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -202,6 +210,59 @@ export default async function ClientProjectDetailPage({
         <div className="space-y-3">
           <h3 className="text-lg font-semibold">Planning</h3>
           <ClientGantt phases={phases} tasks={ganttTasks} />
+        </div>
+      )}
+
+      {/* Ressources */}
+      {project.resources.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">
+            Ressources ({project.resources.length})
+          </h3>
+          <div className="rounded-lg border bg-card divide-y">
+            {project.resources.map((r) => {
+              const Icon =
+                r.type === "html_page"
+                  ? FileCode
+                  : r.type === "external_link"
+                    ? Link2
+                    : FileIcon;
+              const href = r.type === "external_link" ? r.url : r.filepath;
+              const typeLabel =
+                r.type === "html_page"
+                  ? "Page HTML"
+                  : r.type === "external_link"
+                    ? "Lien"
+                    : "Document";
+              return (
+                <a
+                  key={r.id}
+                  href={href ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+                >
+                  <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium truncate">
+                        {r.name}
+                      </span>
+                      <span className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
+                        {typeLabel}
+                      </span>
+                    </div>
+                    {r.type === "external_link" && r.url && (
+                      <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                        {r.url}
+                      </p>
+                    )}
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </a>
+              );
+            })}
+          </div>
         </div>
       )}
 

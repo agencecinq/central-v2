@@ -205,8 +205,28 @@ model Project {
   allocations       ProjectAllocation[]
   userProjects      UserProject[]
   halfDaySlots      HalfDaySlot[]
+  resources         ProjectResource[]
 
   @@map("projects")
+}
+
+model ProjectResource {
+  id          Int      @id @default(autoincrement())
+  projectId   Int      @map("project_id")
+  type        String   @db.VarChar(20)
+  name        String   @db.VarChar(255)
+  filepath    String?  @db.VarChar(500)
+  url         String?  @db.VarChar(500)
+  mimetype    String?  @db.VarChar(255)
+  size        Int?
+  createdById Int?     @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_resources")
 }
 
 model Task {

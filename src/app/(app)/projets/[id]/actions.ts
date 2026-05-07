@@ -1,9 +1,12 @@
 "use server";
 
 import crypto from "crypto";
+import { unlink } from "fs/promises";
+import path from "path";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 
 // ─── Widget Token ────────────────────────────────────────
 
@@ -328,4 +331,79 @@ export async function deletePhase(phaseId: number, projectId: number) {
   await prisma.projectAllocation.delete({ where: { id: phaseId } });
   revalidatePath(`/projets/${projectId}`);
   revalidatePath("/projets/charge-de-travail");
+}
+
+// ─── Project Resources ───────────────────────────────────
+
+async function requireTeam(): Promise<number> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Non authentifié");
+  const role = session.user.role;
+  if (role !== "admin" && role !== "equipe") throw new Error("Accès refusé");
+  return parseInt(session.user.id);
+}
+
+export async function createExternalLinkResource(
+  projectId: number,
+  formData: FormData,
+) {
+  const userId = await requireTeam();
+  const name = (formData.get("name") as string)?.trim();
+  const url = (formData.get("url") as string)?.trim();
+  if (!name || !url) throw new Error("Nom et URL requis");
+
+  // Validation basique de l'URL
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Protocole invalide");
+    }
+  } catch {
+    throw new Error("URL invalide");
+  }
+
+  await prisma.projectResource.create({
+    data: {
+      projectId,
+      type: "external_link",
+      name,
+      url,
+      createdById: userId,
+    },
+  });
+  revalidatePath(`/projets/${projectId}`);
+  revalidatePath(`/espace-client/projets/${projectId}`);
+}
+
+export async function renameResource(resourceId: number, formData: FormData) {
+  await requireTeam();
+  const name = (formData.get("name") as string)?.trim();
+  if (!name) throw new Error("Nom requis");
+
+  const resource = await prisma.projectResource.update({
+    where: { id: resourceId },
+    data: { name },
+  });
+  revalidatePath(`/projets/${resource.projectId}`);
+  revalidatePath(`/espace-client/projets/${resource.projectId}`);
+}
+
+export async function deleteResource(resourceId: number) {
+  await requireTeam();
+  const resource = await prisma.projectResource.findUnique({
+    where: { id: resourceId },
+  });
+  if (!resource) return;
+
+  // Supprimer le fichier physique si présent
+  if (resource.filepath) {
+    const fullPath = path.join(process.cwd(), "public", resource.filepath);
+    await unlink(fullPath).catch(() => {
+      // fichier déjà supprimé / introuvable → on ignore
+    });
+  }
+
+  await prisma.projectResource.delete({ where: { id: resourceId } });
+  revalidatePath(`/projets/${resource.projectId}`);
+  revalidatePath(`/espace-client/projets/${resource.projectId}`);
 }
