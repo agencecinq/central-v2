@@ -144,12 +144,26 @@ export async function POST(request: Request) {
   try {
     const existingQuoteId = budget.deal.qontoQuoteId;
     let quote: { id: string; number: string };
+    let action: "created" | "updated" = existingQuoteId ? "updated" : "created";
 
     if (existingQuoteId) {
-      quote = await updateQuote(existingQuoteId, payload);
+      try {
+        quote = await updateQuote(existingQuoteId, payload);
+      } catch (err) {
+        // Quote was deleted on Qonto side → recreate and update the deal
+        if (err instanceof Error && /\b404\b/.test(err.message)) {
+          quote = await createQuote(payload);
+          await prisma.deal.update({
+            where: { id: budget.deal.id },
+            data: { qontoQuoteId: quote.id },
+          });
+          action = "created";
+        } else {
+          throw err;
+        }
+      }
     } else {
       quote = await createQuote(payload);
-      // Save qontoQuoteId on the deal
       await prisma.deal.update({
         where: { id: budget.deal.id },
         data: { qontoQuoteId: quote.id },
@@ -158,7 +172,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      action: existingQuoteId ? "updated" : "created",
+      action,
       quoteId: quote.id,
       quoteNumber: quote.number,
     });
