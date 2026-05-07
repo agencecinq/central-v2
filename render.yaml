@@ -16,6 +16,10 @@ services:
     buildCommand: npm install && rm -rf src/generated/prisma && npx prisma generate && npx prisma db push && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public
     startCommand: PORT=$PORT node .next/standalone/server.js
     healthCheckPath: /login
+    disk:
+      name: cinq-central-uploads
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
@@ -29,6 +33,11 @@ services:
         sync: false
       - key: NEXT_PUBLIC_APP_URL
         sync: false
+      # Racine où sont stockés les uploads (ressources projet, etc.).
+      # Le disque persistant est monté sur /var/data — on y crée un sous-dossier
+      # uploads/ pour ne pas mélanger avec d'autres usages futurs.
+      - key: UPLOADS_DIR
+        value: /var/data/uploads
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

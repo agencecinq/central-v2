@@ -2,11 +2,11 @@
 
 import crypto from "crypto";
 import { unlink } from "fs/promises";
-import path from "path";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { resolveUploadPath } from "@/lib/uploads";
 
 // ─── Widget Token ────────────────────────────────────────
 
@@ -397,10 +397,14 @@ export async function deleteResource(resourceId: number) {
 
   // Supprimer le fichier physique si présent
   if (resource.filepath) {
-    const fullPath = path.join(process.cwd(), "public", resource.filepath);
-    await unlink(fullPath).catch(() => {
-      // fichier déjà supprimé / introuvable → on ignore
-    });
+    try {
+      const fullPath = resolveUploadPath(resource.filepath);
+      await unlink(fullPath).catch(() => {
+        // fichier déjà supprimé / introuvable → on ignore
+      });
+    } catch {
+      // chemin invalide → on ignore et on supprime l'enregistrement quand même
+    }
   }
 
   await prisma.projectResource.delete({ where: { id: resourceId } });

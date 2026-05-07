@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { readFile, stat } from "fs/promises";
-import path from "path";
+import { resolveUploadPath } from "@/lib/uploads";
 
 export async function GET(
   _request: Request,
@@ -43,13 +43,12 @@ export async function GET(
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
-  // filepath en base est de la forme "/uploads/projects/X/resources/Y"
-  // On ne sert QUE des fichiers sous public/uploads/ (anti-traversal)
-  const safeRel = resource.filepath.replace(/^\/+/, "");
-  if (!safeRel.startsWith("uploads/") || safeRel.includes("..")) {
+  let fullPath: string;
+  try {
+    fullPath = resolveUploadPath(resource.filepath);
+  } catch {
     return NextResponse.json({ error: "Chemin invalide" }, { status: 400 });
   }
-  const fullPath = path.join(process.cwd(), "public", safeRel);
 
   let fileStat;
   try {
